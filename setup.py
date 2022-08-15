@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2017-06-13 09:40:02
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 09:51:21
+# @Last Modified time: 2022-08-15 10:02:51
 
 import os
 from setuptools import setup
@@ -27,7 +27,7 @@ setup(
     name='lab_instruments',
     version='1.0',
     description=readme(),
-    url='',
+    url='https://github.com/tjjlemaire/lab_instruments',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
