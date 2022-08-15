@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 10:38:30
+# @Last Modified time: 2022-08-15 10:45:54
 
 import serial
 import struct
@@ -81,7 +81,6 @@ class SutterMP285A:
 
         :param timeout: commands timeout (s)
         '''
-        print('hello')
         self.connect()
         self.timeout = timeout
         self.set_absolute_mode()
