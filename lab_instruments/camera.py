@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-08-08 10:11:50
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 09:32:19
+# @Last Modified time: 2022-08-15 09:58:39
 
 import os
 import time
@@ -11,8 +11,8 @@ from tqdm import tqdm
 import numpy as np
 import PyCapture2
 
-from logger import logger
-from constants import *
+from .logger import logger
+from .constants import *
 
 # Constants
 SOFTWARE_TRIGGER = 0x62C

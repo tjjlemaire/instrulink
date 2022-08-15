@@ -2,9 +2,9 @@
 # @Author: Theo Lemaire
 # @Date:   2022-08-08 10:11:50
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-08 13:11:50
+# @Last Modified time: 2022-08-15 09:57:29
 
-from camera import *
+from lab_instruments.camera import *
 
 # Grab camera
 cam = grab_camera()

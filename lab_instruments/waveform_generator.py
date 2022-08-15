@@ -2,12 +2,12 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-04-26 10:26:23
+# @Last Modified time: 2022-08-15 09:59:22
 
 import abc
 import numpy as np
 
-from visa_instrument import *
+from .visa_instrument import *
 
 
 class WaveformGenerator(VisaInstrument):

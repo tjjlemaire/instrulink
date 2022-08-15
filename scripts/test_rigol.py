@@ -2,16 +2,17 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 09:30:31
+# @Last Modified time: 2022-08-15 09:57:51
 
 ''' Initiate test sequence with Rigol waveform generator. '''
 
 import logging
-import time
-from visa_instrument import VisaError
-from rigol import RigolDG1022Z
-from logger import logger
-from wf_utils import get_smoothed_waveform
+
+from lab_instruments.visa_instrument import VisaError
+from lab_instruments.rigol import RigolDG1022Z
+from lab_instruments.logger import logger
+from lab_instruments.wf_utils import get_smoothed_waveform
+
 
 logger.setLevel(logging.DEBUG)
 

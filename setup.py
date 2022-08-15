@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2017-06-13 09:40:02
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 09:43:14
+# @Last Modified time: 2022-08-15 09:51:21
 
 import os
 from setuptools import setup
@@ -39,7 +39,7 @@ setup(
     author_email='theo.lemaire1@gmail.com',
     license='MIT',
     packages=['lab_instruments'],
-    scripts=[],
+    scripts=getFiles('scripts'),
     install_requires=getRequirements(),
     zip_safe=False
 )

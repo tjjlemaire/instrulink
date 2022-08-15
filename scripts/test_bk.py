@@ -2,14 +2,15 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-05-03 12:40:55
+# @Last Modified time: 2022-08-15 09:57:20
 
 import numpy as np
 import matplotlib.pyplot as plt
-from logger import logger
-from visa_instrument import VisaError
-from bk_2555 import BKScope
-from si_utils import si_format
+from lab_instruments.logger import logger
+from lab_instruments.visa_instrument import VisaError
+from lab_instruments.bk_2555 import BKScope
+from lab_instruments.si_utils import si_format
+
 
 try:
     # Create oscilloscope object

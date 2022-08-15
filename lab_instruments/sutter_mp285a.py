@@ -2,15 +2,15 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-05-03 13:52:28
+# @Last Modified time: 2022-08-15 09:59:10
 
 import serial
 import struct
 import time
 import numpy as np
 
-from logger import logger
-from utils import is_within
+from .logger import logger
+from .utils import is_within
 
 
 class SutterError(Exception):

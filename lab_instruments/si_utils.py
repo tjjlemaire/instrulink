@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 19:21:50
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-04-08 18:16:50
+# @Last Modified time: 2022-08-15 09:59:04
 
 import numpy as np
 import operator
@@ -29,6 +29,7 @@ SI_powers = {
 }
 si_prefixes = {k: np.power(10., v) for k, v in SI_powers.items()}
 sorted_si_prefixes = sorted(si_prefixes.items(), key=operator.itemgetter(1))
+
 
 def get_SI_pair(x, scale='lin', unit_dim=1):
     ''' Get the correct SI factor and prefix for a floating point number. '''

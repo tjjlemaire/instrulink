@@ -2,13 +2,14 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-04-26 16:07:54
+# @Last Modified time: 2022-08-15 09:59:41
 
 import abc
 import pyvisa
-from logger import logger
 import time
 import threading
+
+from .logger import logger
 
 
 class VisaError(Exception):

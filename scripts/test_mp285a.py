@@ -2,13 +2,13 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:30:00
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-04-30 07:58:43
+# @Last Modified time: 2022-08-15 09:57:38
 
 import numpy as np
 np.set_printoptions(precision=2, formatter={'float': lambda x: f'{x:.2f}'})
 
-from sutter_mp285a import SutterMP285A, SutterError
-from logger import logger
+from lab_instruments.sutter_mp285a import SutterMP285A, SutterError
+from lab_instruments.logger import logger
 
 try:
     # Grab micro-manipulator

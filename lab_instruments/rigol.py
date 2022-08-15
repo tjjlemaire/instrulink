@@ -2,12 +2,13 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-06-07 15:51:27
+# @Last Modified time: 2022-08-15 09:58:56
 
-from waveform_generator import *
-from logger import logger
 import time
-from si_utils import si_format
+
+from .waveform_generator import *
+from .logger import logger
+from .si_utils import si_format
 
 
 class RigolDG1022Z(WaveformGenerator):
