@@ -2,8 +2,15 @@
 
 Python code to interface diverse laboratory instruments.
 
-Instruments currently implemented:
+### Instruments currently implemented
+
 - waveform generators (Keysight & Rigol)
 - oscilloscope (B&K Precision)
 - micro-manipulator (Sutter Instruments)
 - infrared camera (FLIR)
+
+### Requirements
+
+- Anaconda
+- Python 3.6
+- FlyCapture SDK (to use the FLIR camera interface class)
