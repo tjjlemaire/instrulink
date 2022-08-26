@@ -8,6 +8,7 @@ Python code to interface diverse laboratory instruments.
 - oscilloscope (B&K Precision)
 - micro-manipulator (Sutter Instruments)
 - infrared camera (FLIR)
+- NI DAQmx for pulse triggers
 
 ### Requirements
 

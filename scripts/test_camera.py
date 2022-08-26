@@ -10,12 +10,13 @@ from lab_instruments.camera import *
 cam = grab_camera()
 
 # Acquire videos
-duration = 5.  # s
-nacqs = 2
-output_fname = 'C:/Users/scanimage/Desktop/test/output.mp4'
+duration = 10.  # s
+nacqs = 10
+output_fname = 'D:/Theo/testacq/video_avi3.mp4'
 try:
     cam.acquire(
-        output_fname, duration, nacqs=nacqs, trigger_source=TriggerSource.EXTERNAL)
+        output_fname, duration, nacqs=nacqs, 
+        trigger_source=TriggerSource.EXTERNAL)
 except KeyboardInterrupt as err:
     cam.stopCapture()
 

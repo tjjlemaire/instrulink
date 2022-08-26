@@ -3,3 +3,4 @@ colorlog
 pyvisa
 pyserial
 matplotlib
+nidaqmx

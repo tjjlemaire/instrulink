@@ -72,18 +72,16 @@ def log_build_info():
         f'PyCapture2 library version: {lib_ver[0]}.{lib_ver[1]}.{lib_ver[2]}.{lib_ver[3]}')
 
 
-def detect_cameras():
-    ''' Detect available cameras and raise error if none are available '''
-    bus = PyCapture2.BusManager()
-    num_cams = bus.getNumOfCameras()
-    logger.info(f'Number of cameras detected: {num_cams}')
-    if not num_cams:
-        raise CameraError('Insufficient number of cameras')
-
-
 def grab_camera():
     ''' Get Camera object for 1st detected camera '''
+    # Get camera BUS Manager
     bus = PyCapture2.BusManager()
+    # Extract number of connected cameras
+    ncams = bus.getNumOfCameras()
+    # If no camera connected, raise error 
+    if ncams == 0:
+        raise CameraError(
+            'No camera detected. Make sure your camera is connected via a USB3 port')
     # Select camera on 0th index
     cam = Camera()
     cam.connect(bus.getCameraFromIndex(0))
