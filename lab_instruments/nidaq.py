@@ -7,17 +7,17 @@ import numpy as np
 from .logger import logger
 
 
-def get_device_names():
+def get_nidaq_device_names():
     '''  Get NI DAQ device names list '''
     return System().devices.device_names
 
-def get_terminals(device_name):
+def get_nidaq_terminals(device_name):
     ''' Get NI DAQ device output terminals list '''
     return Device(device_name).terminals
 
-def get_co_channels(device_name):
-    ''' Get NI DAQ device physical counter output channels list '''
-    return Device(device_name).co_physical_chans.channel_names
+
+def get_nidaq_tasks():
+    return System().tasks.task_names
 
 
 class PulseTrainGenerator:
@@ -30,15 +30,14 @@ class PulseTrainGenerator:
 
     ######################### CONSTRUCTORS & DESTRUCTORS #########################
 
-    def __init__(self, device_name=None, input_PFI=0, output_PFI=1, output_co=0,
+    def __init__(self, device_name=None, input_PFI=0, output_PFI=1, task_name=None, 
                  freq=1., duty_cycle=0.5, initial_delay=0, npulses=1):
         '''
         Constructor
 
         :param device_name: DAQmx device name (e.g. "PXI1Slot6")
         :param input_PFI: PFI slot number on which input trigger is received
-        :param output_PFI: PFI slot number on which output pulse is generated
-        :param output_co: counter output channel number
+        :param output_PFI: PFI slot number on which output pulse(s) is generated
         :param freq: frequency (in Hz) at which to generate pulses.
         :param duty_cycle: width of pulses divided by the inter-pulse period.
         :param initial_delay: time in seconds to wait before generating the first pulse.
@@ -48,7 +47,7 @@ class PulseTrainGenerator:
         self.device_name = device_name
         self.input_PFI = input_PFI
         self.output_PFI = output_PFI
-        self.output_co = output_co
+        self.task_name = task_name
         # Pulse train parameters
         self.freq = freq
         self.duty_cycle = duty_cycle
@@ -62,12 +61,13 @@ class PulseTrainGenerator:
     def __del__(self):
         ''' Destructor '''
         # Close underlying task
-        logger.info('closing task ...')
-        self._task.close()
-        del(self._task)
+        if hasattr(self, '_task'):
+            logger.info(f'closing {self.task_name} task ...')
+            self._task.close()
+            del(self._task)
     
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.device_name}, PFI_in={self.input_PFI}, PFI_out={self.output_PFI}, CO_out={self.output_co}, freq={self.freq:.2f}Hz, delay={self.initial_delay:.2f}s, npulses={self.npulses})'
+        return f'{self.__class__.__name__}({self.device_name}, PFI_in={self.input_PFI}, PFI_out={self.output_PFI}, freq={self.freq:.2f}Hz, delay={self.initial_delay:.2f}s, npulses={self.npulses})'
 
     ######################### GETTERS & SETTERS #########################
 
@@ -88,7 +88,7 @@ class PulseTrainGenerator:
     @device_name.setter
     def device_name(self, val):
         if val is None:
-            val = get_device_names()[0]
+            val = get_nidaq_device_names()[0]
         self._device_name = val
             
     @property
@@ -114,15 +114,14 @@ class PulseTrainGenerator:
         self.__update_trigger_props('output_PFI')
     
     @property
-    def output_co(self):
-        return self._output_co
+    def task_name(self):
+        return self._task_name
     
-    @output_co.setter
-    def output_co(self, val):
-        if val is not None:
-            self.validate_attribute('output_co', val, dtype=int)
-        self._output_co = val
-        self.__update_trigger_props('output_co')
+    @task_name.setter
+    def task_name(self, val):
+        if val is None:
+            val = self.__class__.__name__
+        self._task_name = val
     
     @property
     def freq(self):
@@ -166,27 +165,21 @@ class PulseTrainGenerator:
 
     ######################### DERIVED PROPERTIES #########################
 
-    @property
-    def task_name(self):
-        return self.__class__.__name__
-
     @property   
     def input_terminal(self):
         if self.input_PFI is None:
-            return get_terminals(self.device_name)[0]
+            return get_nidaq_terminals(self.device_name)[0]
         return f'/{self.device_name}/PFI{self.input_PFI}'
 
     @property   
     def output_terminal(self):
         if self.output_PFI is None:
-            return get_terminals(self.device_name)[1]
+            return get_nidaq_terminals(self.device_name)[1]
         return f'/{self.device_name}/PFI{self.output_PFI}'
 
     @property
     def output_channel(self):
-        if self.output_co is None:
-            return get_co_channels(self.device_name)[0]
-        return f'{self.device_name}/ctr{self.output_co}'
+        return f'{self.device_name}/ctr{self.output_PFI}'
     
     ######################### OTHER METHODS #########################
 
@@ -236,28 +229,30 @@ class PulseTrainGenerator:
     
     def enable(self):
         assert self._task.is_task_done(), 'Pulse train generator is already enabled'
-        logger.info('starting task...')
+        logger.info(f'starting {self.task_name} task...')
         self._task.start()
         
     def disable(self):
-        logger.info('stopping task...')
+        logger.info(f'stopping {self.task_name} task...')
         self._task.stop()
 
 
-def trigger_train(delay=0, interval=1., npulses=1):
+def get_trigger_pulses(name, delay=0, interval=1., npulses=1, PFI=1):
     '''
-    Set up a train of TTL pulses to be triggered upon acquisition 
+    Set up a train of TTL pulse(s) to be triggered upon acquisition 
     
+    :param name: unique string identifier of the underlying NI-DAQ task
     :param delay: delay in seconds to initiate first pulse (default = 0)
     :param interval: interval in seconds between pulses (default = 1s)
     :param npulses: number of pulses (default = 1)
+    :param PFI: output PFI slot number (default = 1)
     :return: PulseTrainGenerator object
     '''    
     # Create PulseTrainGenerator object
     ptg = PulseTrainGenerator(
         device_name='PXI1Slot6', # Device name, 
-        input_PFI=0, output_PFI=1, # Input & output PFI slots
-        output_co=0,  # output channel
+        input_PFI=0, output_PFI=PFI, # Input & output PFI slot numbers
+        task_name=name,
         freq=1 / interval, # frequency set to reciprocal of inter-pulse interval
         duty_cycle= .005 / interval,  # duty cycle set to obtain a constant pusle width of 5 ms
         initial_delay=delay,
