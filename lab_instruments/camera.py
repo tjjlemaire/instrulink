@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-08-08 10:11:50
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 09:58:39
+# @Last Modified time: 2022-08-29 12:16:13
 
 import os
 import time
@@ -22,8 +22,8 @@ CAMERA_POWER = 0x610
 POWER_VAL = 0x80000000
 
 
-CRITICAL_BITRATE = 40  # Critical bitrate (in kb/s) for H264 writing above which some frames are lost
-DEFAULT_BITRATE = 20  # Default bitrate (in kb/s) for H264 writing
+CRITICAL_BITRATE = 100  # Critical bitrate (in kb/s) for H264 writing above which some frames are lost
+DEFAULT_BITRATE = 80  # Default bitrate (in kb/s) for H264 writing
 DEFAULT_JPEG_COMPRESSION = 75  # Default JPEG compression quality (0-100) for MPEG encoding
 SHUTTER_TO_FRAME_INTERVAL_RATIO = 0.9  # Ratio of shutter to frame interval to ensure acquisition at specified FPS
 CHECK_INTERVAL = 1.  # Interval at which the camera checks for acquisition of interruption (in s)
