@@ -437,3 +437,7 @@ class WaveformGenerator(VisaInstrument):
     def get_trigger_output_slope(self):
         ''' Read the trigger output slope type. '''
         raise NotImplementedError
+
+    def disconnect(self):
+        self.unlock_front_panel()
+        super().disconnect()
