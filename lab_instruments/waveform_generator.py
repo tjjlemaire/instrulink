@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-09-07 17:44:31
+# @Last Modified time: 2022-09-08 12:34:20
 
 import abc
 import numpy as np
@@ -18,6 +18,7 @@ class WaveformGenerator(VisaInstrument):
     POLARITIES = ('NORM', 'INV') 
     VOLTAGE_UNITS = ('VPP', 'VRMS', 'DBM')
     TTL_PWIDTH = 1e-5  # width of a nominal TTL pulse (s)
+    TTL_PAMP = 10.  # amplitude of a nominal TTL pulse (V)
     
     # --------------------- MISCELLANEOUS ---------------------
     

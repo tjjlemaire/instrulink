@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-09-07 19:58:08
+# @Last Modified time: 2022-09-08 14:46:02
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -22,6 +22,7 @@ class BKScope(VisaInstrument):
     PREFIX = ''
     UNITS = ['S', 'V', '%', 'Hz', 'Sa']
     CHANNELS = (1, 2, 3, 4)
+    NHDIVS = 15  # Number of horizontal divisions
     NAVGS = (4, 16, 32, 64, 128, 256)
     units_per_param = {
         'PKPK': 'V',  # peak-to-peak
@@ -175,6 +176,16 @@ class BKScope(VisaInstrument):
         self.check_channel_index(ich)
         out = self.query(f'C{ich}: TRA?')
         return out.endswith('ON')
+    
+    def restrict_traces(self, ichs):
+        ''' Restrict trace display to specific channels '''
+        # Show traces for speficied channels
+        for ich in ichs:
+            self.show_trace(ich)
+        # Hide traces for all other channels
+        for ich in list(set(self.CHANNELS) - set(ichs)):
+            if self.is_trace(ich):
+                self.hide_trace(ich)
 
     def screen_dump(self):
         '''
@@ -201,6 +212,7 @@ class BKScope(VisaInstrument):
         # If not in set, replace with closest valid number (in log-distance)
         if value not in self.TDIVS:
             value = self.TDIVS[np.abs(np.log(self.TDIVS) - np.log(value)).argmin()]
+        logger.info(f'setting scope time scale to {value * S_TO_MS:.3f} ms/div')
         self.write(f'TDIV {self.si_process(value)}S')
     
     def get_temporal_scale(self):
@@ -215,6 +227,7 @@ class BKScope(VisaInstrument):
             logger.warning(
                 f'target vertical scale ({value} V/div) above instrument limit ({self.MAX_VDIV} V/div) -> restricting')
             value = self.MAX_VDIV
+        logger.info(f'setting oscilloscope channel {ich} vertical scale to {value:.3f} V/div')
         self.write(f'C{ich}: VDIV {self.si_process(value)}V')
 
     def get_vertical_scale(self, ich):
@@ -285,6 +298,7 @@ class BKScope(VisaInstrument):
 
     def set_trigger_delay(self, value):
         ''' Set the trigger delay (in s) '''
+        logger.info(f'setting scope trigger time delay to {value * S_TO_MS:.3f} ms')
         self.write(f'TRDL {self.si_process(value)}S')
 
     def get_trigger_coupling_mode(self, ich):
@@ -340,6 +354,7 @@ class BKScope(VisaInstrument):
     def set_trigger_source(self, ich):
         ''' Set trigger source channel index '''
         self.check_channel_index(ich)
+        logger.info(f'setting oscilloscope trigger source to channel {ich}')
         ttype = self.get_trigger_type()
         self.write(f'TRSE {ttype},SR,C{ich}')
 
@@ -410,6 +425,14 @@ class BKScope(VisaInstrument):
         out = self.query(f'SANU? C{ich}')
         mo = re.match(self.SANU_REGEXP, out)
         return int(mo[1])
+
+    def enable_peak_detector(self):
+        ''' Turn on peak detector '''
+        self.write('PDET ON')
+
+    def disable_peak_detector(self):
+        ''' Turn off peak detector '''
+        self.write('PDET OFF')
     
     # --------------------- PARAMETERS ---------------------
 

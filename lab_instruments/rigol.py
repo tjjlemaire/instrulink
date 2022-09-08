@@ -2,9 +2,11 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-09-07 19:22:38
+# @Last Modified time: 2022-09-08 11:02:13
 
 import time
+
+from lab_instruments.constants import MV_TO_V
 
 from .waveform_generator import *
 from .logger import logger
@@ -376,7 +378,7 @@ class RigolDG1022Z(WaveformGenerator):
         # Set channel trigger source to external
         self.set_trigger_source(ich, 'EXT')
 
-    def set_gated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, mod_Vpp=10., mod_T=2.,
+    def set_gated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, mod_Vpp=None, mod_T=2.,
                              ich_mod=1, ich_sine=2):
         '''
         Set sine burst on channel 2 gated by channel 1 (used for pulsed US stimulus)
@@ -389,6 +391,8 @@ class RigolDG1022Z(WaveformGenerator):
         :param mod_Vpp: amplitude of the modulating square pulse (default = 5 Vpp)
         :param mod_T: repetition period of the modulating square pulse (default = 2s)
         '''
+        if mod_Vpp is None:
+            mod_Vpp = self.TTL_PAMP / MV_TO_V
         if ich_mod == ich_sine:
             raise VisaError('gating and signal channels cannot be identical')
         # Disable all outputs
