@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 09:58:56
+# @Last Modified time: 2022-09-07 19:22:38
 
 import time
 
@@ -21,6 +21,8 @@ class RigolDG1022Z(WaveformGenerator):
     FMAX = 25e6  # Hz
     VMAX = 20.0  # Vpp
     BURST_MODES = ('TRIG', 'INF', 'GAT')
+    BURST_IDLE_LEVELS = ('FPT', 'TOP', 'CENTER', 'BOTTOM')
+    PULSE_HOLDS = ('WIDT', 'DUTY')
     MAX_BURST_PERIOD = 500. # s
     TRIGGER_SOURCES = ('INT', 'EXT', 'MAN')
     CHANNELS = (1, 2)
@@ -159,6 +161,40 @@ class RigolDG1022Z(WaveformGenerator):
         self.check_channel_index(ich)
         return float(self.query(f'SOUR{ich}:FUNC:SQU:DCYC?'))
     
+    def set_pulse_hold(self, ich, phold):
+        ''' 
+        Set the pulse mode highlight item of the specified channel
+        '''
+        if phold not in self.PULSE_HOLDS:
+            raise VisaError(
+                f'{phold} not a valid pulse hold mode. Candidates are {self.PULSE_HOLDS}')
+        self.write(f'SOUR{ich}:PULS:HOLD {phold}')
+    
+    def get_pulse_hold(self, ich):
+        ''' 
+        Get the pulse mode highlight item of the specified channel
+        '''
+        return self.query(f'SOUR{ich}:PULS:HOLD?')
+    
+    def set_pulse_duty_cycle(self, ich, DC):
+        self.check_channel_index(ich)
+        self.check_duty_cycle(DC)
+        self.set_pulse_hold(ich, 'DUTY')
+        self.write(f'SOUR{ich}:FUNC:PULS:DCYC {DC}')
+
+    def get_pulse_duty_cycle(self, ich):
+        self.check_channel_index(ich)
+        return float(self.query(f'SOUR{ich}:FUNC:PULS:DCYC?'))
+
+    def set_pulse_width(self, ich, width):
+        self.check_channel_index(ich)
+        self.set_pulse_hold(ich, 'WIDT')
+        self.write(f'SOUR{ich}:FUNC:PULS:WIDT {width}')
+
+    def get_pulse_width(self, ich):
+        self.check_channel_index(ich)
+        return float(self.query(f'SOUR{ich}:FUNC:PULS:WIDT?'))
+    
     # --------------------- ARBITRARY WAVEFORM ---------------------
 
     def set_arbitrary_waveform(self, ich, y, precision=5):
@@ -230,9 +266,21 @@ class RigolDG1022Z(WaveformGenerator):
         ''' Set the burst delay of the N-cycle / infinite burst of the specified channel.'''
         self.write(f'SOUR{ich}:BURS:TDEL {t}')
     
-    def set_burst_delay(self, ich):
+    def get_burst_delay(self, ich):
         ''' Get the burst delay of the N-cycle / infinite burst of the specified channel.'''
         return float(self.query(f'SOUR{ich}:BURS:TDEL?'))
+    
+    def set_burst_idle_level(self, ich, lvl):
+        ''' Set the idle level position of the burst mode for the specified channel '''
+        self.check_channel_index(ich)
+        if lvl not in self.BURST_IDLE_LEVELS:
+            raise VisaError(
+                f'{lvl} is not a valid idle level (options are {self.BURST_IDLE_LEVELS})')
+        self.write(f'SOUR{ich}:BURS:IDLE {lvl}')
+    
+    def get_burst_idle_level(self, ich):
+        self.check_channel_index(ich)
+        return self.query(f'SOUR{ich}:BURS:IDLE?')
 
     # --------------------- TRIGGER ---------------------
 
@@ -300,8 +348,36 @@ class RigolDG1022Z(WaveformGenerator):
     def start_trigger_loop(self, ich):
         ''' Start a trigger loop with a specific channel '''
         self.set_trigger_source(ich, 'INT')
+    
+    def set_gating_pulse_train(self, ich, PRF, Vpp, T, tburst):
+        '''
+        Set a gating pulse train on a specific channel
+        
+        :param ich: channel index
+        :param PRF: pulse repetition frequency (Hz)
+        :param Vpp: pulse amplitude (V)
+        :param T: burst repetition period (s)
+        :param tburst: burst duration (s)
+        '''
+        # Apply pulse with specific frequency, amplitude and offset
+        self.apply_pulse(ich, PRF, Vpp, offset=Vpp / 2.)
+        # Set nominal pulse width
+        self.set_pulse_width(ich, self.TTL_PWIDTH)
+        # Set pulse idle level to "bottom"
+        self.set_burst_idle_level(ich, 'BOTTOM')
+        # Set channel trigger source to external
+        self.set_trigger_source(ich, 'EXT')
+        # Set burst repetition period
+        self.set_burst_internal_period(ich, T)  # s
+        # Set burst duration
+        self.set_burst_duration(ich, tburst)  # s
+        # Enable burst mode on channel
+        self.enable_burst(ich)
+        # Set channel trigger source to external
+        self.set_trigger_source(ich, 'EXT')
 
-    def set_gated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, mod_Vpp=10., mod_T=2.):
+    def set_gated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, mod_Vpp=10., mod_T=2.,
+                             ich_mod=1, ich_sine=2):
         '''
         Set sine burst on channel 2 gated by channel 1 (used for pulsed US stimulus)
         
@@ -313,17 +389,13 @@ class RigolDG1022Z(WaveformGenerator):
         :param mod_Vpp: amplitude of the modulating square pulse (default = 5 Vpp)
         :param mod_T: repetition period of the modulating square pulse (default = 2s)
         '''
+        if ich_mod == ich_sine:
+            raise VisaError('gating and signal channels cannot be identical')
         # Disable all outputs
-        self.disable_output()    
-        # Set channel 1 (gating channel) parameters
-        ich = 1
-        self.apply_square(ich, PRF, mod_Vpp)
-        self.set_trigger_source(ich, 'EXT')
-        self.set_burst_internal_period(ich, mod_T)  # s
-        self.set_burst_duration(ich, tstim)  # s
-        self.enable_burst(ich)
-        self.set_trigger_source(ich, 'EXT')
-        # Set channel 2 (sinewave channel) parameters
+        self.disable_output()
+        # Set gating channel parameters
+        self.set_gating_pulse_train(ich_mod, PRF, mod_Vpp, mod_T, tstim)
+        # Set sinewave channel parameters
         ich = 2
         self.apply_sine(ich, Fdrive, Vpp)
         self.set_trigger_source(ich, 'EXT')
@@ -334,7 +406,7 @@ class RigolDG1022Z(WaveformGenerator):
         if Vpp > 0.:
             self.enable_output()
     
-    def set_looping_sine_burst(self, ich, Fdrive, Vpp=.1, ncycles=200, PRF=100.):
+    def set_looping_sine_burst(self, ich, Fdrive, Vpp=.1, ncycles=200, BRF=100., ich_trig=None):
         '''
         Set an internally looping sine burst on a specific channel
         
@@ -342,15 +414,33 @@ class RigolDG1022Z(WaveformGenerator):
         :param Fdrive: driving frequency (Hz)
         :param Vpp: waveform amplitude (Vpp)
         :param ncycles: number of cycles per burst
-        :param PRF: pulse repetition frequency (Hz)
+        :param BRF: Burst repetition frequency (Hz)
+        :param ich_trig (optional): triggering channel index
         '''
-        logger.info(f'setting ({si_format(Fdrive, 3)}Hz, {si_format(Vpp, 3)}Vpp, {ncycles} cycles) sine wave looping at {PRF:.1f} Hz on channel {ich}')
-        # Disable all outputs
-        self.disable_output()  
-        # Set channel parameters
-        self.apply_sine(ich, Fdrive, Vpp)
-        self.set_burst_internal_period(ich, 1 / PRF)  # s
-        self.set_burst_ncycles(ich, ncycles)
-        self.set_trigger_source(ich, 'INT')
-        self.enable_burst(ich)
-
+        # Log process
+        params_str = ', '.join([
+            f'{si_format(Fdrive, 3)}Hz',
+            f'{si_format(Vpp, 3)}Vpp', 
+            f'{ncycles} cycles'
+        ])
+        s = f'setting ({params_str}) sine wave looping at {BRF:.1f} Hz on channel {ich}'
+        if ich_trig is not None:
+            s = f'{s}, triggered by channel {ich_trig}'
+        logger.info(s)
+        if ich_trig is not None:
+            tburst = ncycles / Fdrive  # nominal burst duration (s)
+            self.set_gated_sine_burst(
+                Fdrive, Vpp, tburst, 1. / tburst, BRF, mod_T=1. / BRF,
+                ich_mod=ich_trig, ich_sine=ich)
+            self.start_trigger_loop(ich_trig)
+            self.enable_output()
+        else:
+            # Disable all outputs
+            self.disable_output()
+            # Set sine wave channel parameters
+            self.apply_sine(ich, Fdrive, Vpp)
+            self.set_burst_internal_period(ich, 1 / BRF)  # s
+            self.set_burst_ncycles(ich, ncycles)
+            self.enable_burst(ich)
+            self.start_trigger_loop(ich)
+            self.enable_output_channel(ich)

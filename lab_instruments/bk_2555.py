@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 10:15:06
+# @Last Modified time: 2022-09-07 19:58:08
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -22,6 +22,7 @@ class BKScope(VisaInstrument):
     PREFIX = ''
     UNITS = ['S', 'V', '%', 'Hz', 'Sa']
     CHANNELS = (1, 2, 3, 4)
+    NAVGS = (4, 16, 32, 64, 128, 256)
     units_per_param = {
         'PKPK': 'V',  # peak-to-peak
         'MAX': 'V',  # maximum
@@ -59,14 +60,33 @@ class BKScope(VisaInstrument):
     TRMD_REGEXP = 'TRMD ([A-z]+)'
     TRDL_REGEXP = f'TRDL ({FLOAT_REGEXP})([A-z]+)'
     SARA_REGEXP = f'SARA ({FLOAT_REGEXP})([A-z]+)'
+    AVGA_REGEXP = f'AVGA ({INT_REGEXP})'
     SANU_REGEXP = f'SANU ({INT_REGEXP})'
     PAVA_REGEXP = f'C{{}}:PAVA {{}},({SI_REGEXP})([A-z]+)'
+    SAST_REGEXP = 'SAST (.+)'
     WFSU_REGEXP = 'WFSU SP,([0-9]+),NP,([0-9]+),FP,([0-9]+),SN,([0-9]+)'
     CFMT_REGEXP = '^CFMT (DEF9|IND0|OFF),(BYTE|WORD),(BIN|HEX)$'
+    TRSE_REGEXP = f'TRSE (EDGE|GLIT|INTV|TV),SR,C({INT_REGEXP}),HT,(TI|PS|PL|PE|IS|IL|IE),HV,({FLOAT_REGEXP})([A-z]+)'
     TBASES = [1, 2.5, 5]
     TWEIGHTS = np.logspace(-9, 1, 11)
     TDIVS = np.ravel((np.tile(TBASES, (TWEIGHTS.size, 1)).T * TWEIGHTS).T)
     TIMEOUT_SECONDS = 20.  # long timeout to allow slow commands (e.g. auto-setup)
+    TRIG_TYPES = (  # trigger types
+        'EDGE',  # edge trigger
+        'GLIT',  # pulse trigger
+        'INTV',  # slope trigger
+        'TV'  # video trigger
+    )
+    HOLD_TYPES = (  # pulse types
+        'TI',  # holdoff
+        'PS',  # if pulse width is smaller than the set value (in GLIT mode)
+        'PL',  # if pulse width is larger than the set value (in GLIT mode)
+        'PE',  # if pulse width is equal with the set value (in GLIT mode)
+        'IS',  # if interval is smaller than the set value (in INTV mode)
+        'IL',  # if interval is larger than the set value (in INTV mode)
+        'IE'   # if interval is equal with the set value (in INTV mode)
+    )
+    MAX_VDIV = 5.  # Max voltage per division (V)
 
     # --------------------- MISCELLANEOUS ---------------------
 
@@ -105,13 +125,14 @@ class BKScope(VisaInstrument):
         ''' Process an input value to be set '''
         return si_format(val, space='').upper()
     
-    def process_float_mo(self, out, rgxp, key):
-        ''' Process a float notation regexp match object '''
+    def process_int_mo(self, out, rgxp, key):
+        ''' Process an integer notation regexp match object '''
         mo = re.match(rgxp, out)
         if mo is None:
             raise VisaError(f'could not extract {key} from "{out}"')
-        val = float(mo[1])
-        suffix = mo[2]
+        return int(mo[1])
+    
+    def process_float(self, val, suffix):
         if suffix in self.UNITS:
             exp = 0
         else:
@@ -121,6 +142,15 @@ class BKScope(VisaInstrument):
                 exp = SI_powers[suffix[0].swapcase()]
         factor = np.float_power(10, exp)
         return val * factor
+    
+    def process_float_mo(self, out, rgxp, key):
+        ''' Process a float notation regexp match object '''
+        mo = re.match(rgxp, out)
+        if mo is None:
+            raise VisaError(f'could not extract {key} from "{out}"')
+        val = float(mo[1])
+        suffix = mo[2]
+        return self.process_float(val, suffix)
     
     # --------------------- DISPLAY ---------------------
 
@@ -181,6 +211,10 @@ class BKScope(VisaInstrument):
     def set_vertical_scale(self, ich, value):
         ''' Set the vertical sensitivity of the specified channel (in V/div) '''
         self.check_channel_index(ich)
+        if value > self.MAX_VDIV:
+            logger.warning(
+                f'target vertical scale ({value} V/div) above instrument limit ({self.MAX_VDIV} V/div) -> restricting')
+            value = self.MAX_VDIV
         self.write(f'C{ich}: VDIV {self.si_process(value)}V')
 
     def get_vertical_scale(self, ich):
@@ -223,7 +257,7 @@ class BKScope(VisaInstrument):
     # CRVA?
     # CRAU
 
-    # --------------------- ACQUISITION ---------------------
+    # --------------------- TRIGGER ---------------------
 
     def get_trigger_level(self, ich):
         ''' Get the trigger level of the specified trigger source (in V) '''
@@ -277,11 +311,37 @@ class BKScope(VisaInstrument):
                 f'{value} not a valid trigger mode (candidates are {self.TRIGGER_MODES})')
         self.write(f'TRMD {value}')
 
-    def get_trigger_select(self):
-        pass
+    def get_trigger_options(self):
+        ''' Get trigger type and options '''
+        out = self.query(f'TRIG_SELECT?')
+        mo = re.match(self.TRSE_REGEXP, out)
+        return {
+            'type': mo[1],
+            'source': int(mo[2]),
+            'hold_type': mo[3],
+            'hold_val': self.process_float(float(mo[4]), mo[5])
+        }
     
-    def set_trigger_select(self):
-        pass
+    def get_trigger_type(self):
+        ''' Get trigger type '''
+        return self.get_trigger_options()['type']
+    
+    def set_trigger_type(self, val):
+        ''' Set trigger type '''
+        if val not in self.TRIG_TYPES:
+            raise VisaError(
+                f'{val} not a valid trigger types. Candidates are {self.TRIG_TYPES}')
+        self.write(f'TRSE {val}')
+    
+    def get_trigger_source(self):
+        ''' Get trigger source channel index '''
+        return self.get_trigger_options()['source']
+    
+    def set_trigger_source(self, ich):
+        ''' Set trigger source channel index '''
+        self.check_channel_index(ich)
+        ttype = self.get_trigger_type()
+        self.write(f'TRSE {ttype},SR,C{ich}')
 
     def get_trigger_slope(self, ich):
         ''' Get trigger slope of a particular trigger source '''
@@ -297,6 +357,16 @@ class BKScope(VisaInstrument):
             raise VisaError(
                 f'{value} not a valid trigger slope (candidates are {self.TRIGGER_SLOPES})')
         self.write(f'C{ich}: TRSL {value}')
+
+    def force_trigger(self):
+        ''' Force the instrument to make 1 acquisition '''
+        self.write('FRTR')
+
+    def trg(self):
+        ''' Execute an ARM command '''
+        self.write('*TRG')        
+    
+    # --------------------- ACQUISITION ---------------------
     
     def arm_acquisition(self):
         '''
@@ -311,6 +381,23 @@ class BKScope(VisaInstrument):
         AUTO or NORM).
         '''
         self.write('STOP')
+    
+    def get_nsweeps_per_acquisition(self):
+        ''' Get the number of samples to average from for average acquisition.'''
+        out = self.query('AVGA?')
+        return self.process_int_mo(out, self.AVGA_REGEXP, '#sweeps/acquisition')
+    
+    def set_nsweeps_per_acquisition(self, value):
+        ''' Set the number of samples to average from for average acquisition.'''
+        if value not in self.NAVGS:
+            raise VisaError(f'Not a valid number of sweeps. Candidates are {self.NAVGS}')
+        self.write(f'AVGA {value}')
+    
+    def get_acquisition_status(self):
+        ''' Get the acquisition status of the oscilloscope '''
+        out = self.query('SAST?')
+        mo = re.match(self.SAST_REGEXP, out)
+        return mo[1]
     
     def get_sample_rate(self):
         ''' Get the acquisition sampling rate (in samples/second) '''
@@ -424,7 +511,7 @@ class BKScope(VisaInstrument):
         :return: value of the field of interest
         '''
         # Deduce field size (in bytes) from data type
-        s = {'f': 4, 'd': 8}[dtype]
+        s = {'f': 4, 'd': 8, 'l': 4}[dtype]
         # Extract binary segment
         fbin = b''.join(bytes[istart:istart + s])
         # Convert and return
@@ -442,6 +529,9 @@ class BKScope(VisaInstrument):
         meta = self.query_binary_values(
             f'C{ich}:WF? DESC',
             datatype='c')
+        # Extract number of sweeps per acquisition
+        nsweeps_per_acq = self.extract_from_bytes(meta, istart=148, dtype='l')
+        logger.debug(f'# sweeps/acq: {nsweeps_per_acq}')
         # Extract amplitude scale factor and amplitude offset
         vgain = self.extract_from_bytes(meta, istart=156)
         logger.debug(f'vertical gain: {vgain:.5e}')
@@ -452,6 +542,7 @@ class BKScope(VisaInstrument):
         logger.debug(f'sampling interval: {si_format(dt, 3)}s')
         hoff = self.extract_from_bytes(meta, istart=180, dtype='d')
         logger.debug(f'horizontal offset: {hoff} s')
+        # hunit = meta[244].decode('utf-8')
         # Extract waveform data
         y = self.query_binary_values(
             f'C{ich}:WF? DAT2',
