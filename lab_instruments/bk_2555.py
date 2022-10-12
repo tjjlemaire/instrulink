@@ -2,11 +2,12 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-10-12 15:35:44
+# @Last Modified time: 2022-10-12 15:38:11
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
 import io
+import struct
 from PIL import Image
 
 from .constants import *
