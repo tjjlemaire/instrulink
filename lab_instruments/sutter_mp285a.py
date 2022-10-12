@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 10:45:54
+# @Last Modified time: 2022-09-14 18:14:03
 
 import serial
 import struct
@@ -86,7 +86,7 @@ class SutterMP285A:
         self.set_absolute_mode()
         self.update_status()
         self.set_resolution(1)
-        self.set_velocity(1000.)
+        self.set_velocity(self.HIGH_RES_SPEED_BOUNDS[1])
     
     def __repr__(self):
         return f'{self.__class__.__name__}({self.instrument_handle.port})'
@@ -236,6 +236,10 @@ class SutterMP285A:
         # Convert to um and return
         return pos_usteps / self.usteps_per_um  # um
     
+    def pos_str(self, pos):
+        pos_str = ', '.join([f'{x:.2f}' for x in pos])
+        return f'[{pos_str}] um'
+    
     def get_position(self):
         '''
         Get controller XYZ position (in um)
@@ -246,13 +250,13 @@ class SutterMP285A:
         self.write('c')
         # Read position from controller
         pos = self.decode_position()
-        logger.debug(f'stage position: {pos} um')
+        logger.debug(f'stage position: {self.pos_str(pos)}')
         return pos
     
     def check_coordinate(self, k, v):
         ''' Check that coordinate is within bounds '''
         if not is_within(v, self.XYZ_BOUNDS):
-            raise SutterError(f'target {k} coordinate {v} um is out of bounds {self.XYZ_BOUNDS}')
+            raise SutterError(f'target {k} coordinate {v:.3f} um is out of bounds {self.XYZ_BOUNDS}')
     
     def check_coordinates(self, cdict):
         ''' Check a dictionary of coordinates '''
@@ -274,9 +278,12 @@ class SutterMP285A:
         # Compute delta to target
         current_pos = self.get_position()
         delta = pos - current_pos
-        # Check if velocity will allow to move there before timeout
-        # dtot = np.abs(delta).sum()
         dtot = np.linalg.norm(delta)
+        # If total distance is zero (no delta), return
+        if dtot == 0:
+            logger.warning('already at position!')
+            return
+        # Check if velocity will allow to move there before timeout
         v = self.get_velocity()  # um/s
         tmove_est = dtot / v # s
         # If not, check required speed to achieve it in percentage of timeout
@@ -288,7 +295,7 @@ class SutterMP285A:
                 f'increasing velocity temporarily to {vreq} um/s to cover {dtot:.2f} um within {self.TREL_MAX * 1e2:.0f} % of {self.timeout} s timeout')
             self.set_velocity(vreq)
         if not silent:
-            logger.info(f'moving to position: {pos} um (delta = {delta} um)')
+            logger.info(f'moving to position: {self.pos_str(pos)} (delta = {self.pos_str(delta)})')
         bpos = self.encode_position(pos, prefix='m')  # encode position to bytes
         tmove = time.perf_counter()
         self.write_and_check(bpos, convert_to_bytes=False)  # send position to controller
@@ -297,9 +304,9 @@ class SutterMP285A:
         new_pos = self.get_position()
         new_delta = pos - new_pos
         if np.sum(np.abs(new_delta)) > self.XYZ_TOL:
-            raise SutterError(f'could not reach target position {pos} um (value = {new_pos} um)')
-        if tmove / tmove_est > self.TREL_WARN:
-            logger.warning(f'{delta} relative move took {tmove / tmove_est:.2f} times expected time')
+            raise SutterError(f'could not reach target position {self.pos_str(pos)} (value = {self.pos_str(new_pos)})')
+        if tmove > max(50e-3, self.TREL_WARN * tmove_est):
+            logger.warning(f'{delta} move took {tmove * 1e3:.3f} ms ({tmove / tmove_est:.2f} times expected time)')
         if vreq is not None:
             logger.warning(f'resetting velocity to {v} um/s')
             self.set_velocity(v)
@@ -307,12 +314,14 @@ class SutterMP285A:
     def move_to_origin(self):
         ''' Move to origin '''
         self.set_position([0., 0., 0.])
-
-    def move_up(self, dz):
-        ''' Move up by a delta-z (um) '''
+    
+    def translate(self, v, **kwargs):
+        '''
+        Translate by some vector
+        
+        :param v: XYZ translation vector (um) '''
         pos = self.get_position()
-        pos[2] -= np.abs(dz)
-        self.set_position(pos)
+        self.set_position(pos + v, **kwargs)
     
     def get_velocity(self):
         ''' Get controller motion velocity (um/s) '''

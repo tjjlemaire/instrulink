@@ -2,16 +2,16 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-09-08 14:46:02
+# @Last Modified time: 2022-10-12 15:35:44
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
 import io
-import struct
 from PIL import Image
 
 from .constants import *
 from .si_utils import *
+from .utils import is_within
 from .visa_instrument import *
 
 
@@ -22,8 +22,13 @@ class BKScope(VisaInstrument):
     PREFIX = ''
     UNITS = ['S', 'V', '%', 'Hz', 'Sa']
     CHANNELS = (1, 2, 3, 4)
-    NHDIVS = 15  # Number of horizontal divisions
-    NAVGS = (4, 16, 32, 64, 128, 256)
+    NHDIVS = 18  # Number of horizontal divisions
+    NVDIVS = 8  # Number of vertical divisions
+    NAVGS = (1, 4, 16, 32, 64, 128, 256)
+    ACQ_TYPES = ('PEAK_DETECT','SAMPLING','AVERAGE')
+    INTERP_TYPES = ('linear', 'sine')
+    CURSOR_TYPES = ('HREF', 'HDIF', 'VREF', 'VDIF', 'TREF', 'TDIF')
+    CVALUES_TYPES = ('HREL', 'VREL')
     units_per_param = {
         'PKPK': 'V',  # peak-to-peak
         'MAX': 'V',  # maximum
@@ -62,6 +67,8 @@ class BKScope(VisaInstrument):
     TRDL_REGEXP = f'TRDL ({FLOAT_REGEXP})([A-z]+)'
     SARA_REGEXP = f'SARA ({FLOAT_REGEXP})([A-z]+)'
     AVGA_REGEXP = f'AVGA ({INT_REGEXP})'
+    SXSA_REGEXP = '(SXSA) (ON|OFF)'
+    ACQW_REGEXP = '(ACQW) (AVERAGE,?\d*|SAMPLING|PEAK_DETECT)'
     SANU_REGEXP = f'SANU ({INT_REGEXP})'
     PAVA_REGEXP = f'C{{}}:PAVA {{}},({SI_REGEXP})([A-z]+)'
     SAST_REGEXP = 'SAST (.+)'
@@ -267,8 +274,76 @@ class BKScope(VisaInstrument):
     # --------------------- CURSORS ---------------------
     
     # CRST?
-    # CRVA?
-    # CRAU
+
+    def set_cursor_position(self, ich, ctype, cpos):
+        ''' 
+        Set cursor position at a given screen location
+        
+        :param ich: cursor reference channel
+        :param ctype: cursor type
+        :param cpos: cursor position (in number of divisions)
+        '''
+        # Check cursor type
+        if ctype not in self.CURSOR_TYPES:
+            raise VisaError(
+                f'invalid cursor type: {ctype} (candidates are {self.CURSOR_TYPES}')
+        # Check cursor position
+        if ctype in ('HREF', 'HDIF'):
+            divbounds = (0.1, self.NHDIVS - 0.1)
+        elif ctype in ('TREF', 'TDIF'):
+            divbounds = (-self.NVDIVS / 2, self.NVDIVS / 2)
+        elif ctype in ('VREF', 'VDIF'):
+            divbounds = (-self.NHDIVS / 2, self.NHDIVS / 2)
+        if not is_within(cpos, divbounds):
+            raise VisaError(
+                f'invalid {ctype} cursor position: {cpos} (bounds are {divbounds})')
+        
+        self.write(f'C{ich}: CRST {ctype}, {cpos}DIV')
+    
+    def get_cursor_position(self, ich, ctype):
+        ''' 
+        Get cursor position at a given screen location
+        
+        :param ich: cursor reference channel
+        :param ctype: cursor type
+        :return: cursor position (in number of divisions)
+        '''
+        # Check cursor type
+        if ctype not in self.CURSOR_TYPES:
+            raise VisaError(
+                f'invalid cursor type: {ctype} (candidates are {self.CURSOR_TYPES}')
+        out = self.query(f'C{ich}: CRST? {ctype}')
+        out_rgxp = f'C{ich}:CRST {ctype},({FLOAT_REGEXP})'
+        mo = re.match(out_rgxp, out)
+        return float(mo.group(1))
+
+    def get_cursor_value(self, ich, ctype):
+        ''' 
+        Get cursor value
+        
+        :param ich: cursor reference channel
+        :param ctype: cursor type
+        :return: cursor value(s)
+        '''
+        # Check cursor type
+        if ctype not in self.CVALUES_TYPES:
+            raise VisaError(
+                f'invalid cursor type for value extraction: {ctype} (candidates are {self.CVALUES_TYPES}')
+        out = self.query(f'C{ich}: CRVA? {ctype}')
+        # Parser output depending on cursor type
+        out_rgxp = f'C{ich}:CRVA {ctype}'
+        if ctype == 'HREL':
+            out_rgxp = f'{out_rgxp},({SI_REGEXP}),({SI_REGEXP}),({SI_REGEXP}),({FLOAT_REGEXP})'
+        else:
+            out_rgxp = f'{out_rgxp},({SI_REGEXP})'
+        mo = re.match(out_rgxp, out)
+        # Return cursor value(s)
+        outs = [float(x) for x in mo.groups()]
+        return outs
+
+    def set_auto_cursor(self):
+        ''' Set cursor mode to auto '''
+        self.write('CRAU')
 
     # --------------------- TRIGGER ---------------------
 
@@ -396,6 +471,27 @@ class BKScope(VisaInstrument):
         AUTO or NORM).
         '''
         self.write('STOP')
+
+    def get_interpolation_type(self):
+        ''' Get the type of waveform interpolation (linear or sine) '''
+        out = self.query('SXSA?')
+        mo = re.match(self.SXSA_REGEXP, out)
+        _, SXSA = mo.groups()
+        return {
+            'ON': 'sine',
+            'OFF': 'linear'
+        }[SXSA]
+    
+    def set_interpolation_type(self, value):
+        ''' Get the type of waveform interpolation (linear or sine) '''
+        if value not in self.INTERP_TYPES:
+            raise ValueError(
+                f'invalid interpolation type: {value} (candidates are {self.INTERP_TYPES})')
+        SXSA = {
+            'sine': 'ON',
+            'linear': 'OFF'
+        }[value]
+        self.write(f'SXSA {SXSA}')
     
     def get_nsweeps_per_acquisition(self):
         ''' Get the number of samples to average from for average acquisition.'''
@@ -406,7 +502,11 @@ class BKScope(VisaInstrument):
         ''' Set the number of samples to average from for average acquisition.'''
         if value not in self.NAVGS:
             raise VisaError(f'Not a valid number of sweeps. Candidates are {self.NAVGS}')
-        self.write(f'AVGA {value}')
+        if value == 1:
+            self.set_acquisition_type('SAMPLING')
+        else:
+            self.set_acquisition_type('AVERAGE')
+            self.write(f'AVGA {value}')
     
     def get_acquisition_status(self):
         ''' Get the acquisition status of the oscilloscope '''
@@ -433,6 +533,24 @@ class BKScope(VisaInstrument):
     def disable_peak_detector(self):
         ''' Turn off peak detector '''
         self.write('PDET OFF')
+
+    def get_acquisition_type(self):
+        ''' Get oscilloscope acquisition type '''
+        out = self.query('ACQW?')
+        mo = re.match(self.ACQW_REGEXP, out)
+        _, acqtype = mo.groups()
+        return acqtype
+    
+    def set_acquisition_type(self, value):
+        ''' Set oscilloscope acquisition type '''
+        value = value.upper()
+        if value not in self.ACQ_TYPES:
+            raise ValueError(
+                f'invalid acquisition type: {value} (candidates are {self.ACQ_TYPES})')
+        if value == 'AVERAGE':
+            nsweeps = self.get_nsweeps_per_acquisition()
+            value = f'{value},{nsweeps}'
+        self.write(f'ACQW {value}')
     
     # --------------------- PARAMETERS ---------------------
 
