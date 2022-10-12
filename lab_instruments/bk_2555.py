@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-10-12 15:38:11
+# @Last Modified time: 2022-10-12 16:42:41
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -30,6 +30,8 @@ class BKScope(VisaInstrument):
     INTERP_TYPES = ('linear', 'sine')
     CURSOR_TYPES = ('HREF', 'HDIF', 'VREF', 'VDIF', 'TREF', 'TDIF')
     CVALUES_TYPES = ('HREL', 'VREL')
+    FILTER_TYPES = ('LP', 'HP', 'BP', 'BR')
+    FILTER_REL_LIMS = (2.5, 230)  # Filter cutoff limits (Hz * (s/div) = 1/div)
     units_per_param = {
         'PKPK': 'V',  # peak-to-peak
         'MAX': 'V',  # maximum
@@ -257,6 +259,91 @@ class BKScope(VisaInstrument):
         return self.process_float_mo(
             out, self.VOFF_REGEXP.format(ich), f'channel {ich} vertical offset')
     
+    # --------------------- FILTERS ---------------------
+
+    def enable_bandwith_filter(self, ich):
+        ''' Turn on bandwidth-limiting low-pass filter for specific channel '''
+        self.check_channel_index(ich)
+        self.write(f'BWL C{ich} ON')
+    
+    def disable_bandwith_filter(self, ich):
+        ''' Turn off bandwidth-limiting low-pass filter for specific channel '''
+        self.check_channel_index(ich)
+        self.write(f'BWL C{ich} OFF')
+    
+    def set_filter(self, ich, ftype, flow=None, fhigh=None):
+        '''
+        Set specific filter on specific channel
+        
+        :param ich: channel index
+        :param ftype: filter type
+        :param flow: filter lower limit frequency (Hz)
+        :param flow: filter upper limit frequency (Hz)
+        '''
+        self.check_channel_index(ich)
+        # Check filter type
+        if ftype not in self.FILTER_TYPES:
+            raise VisaError(
+                f'invalid filter type: {ftype} (candidates are {self.FILTER_TYPES})')
+        # Check frequency limits
+        if ftype == 'LP':
+            if flow is not None:
+                raise VisaError('cannot specify frequency lower limit for LP filter')
+            if fhigh is None:
+                raise VisaError('frequency higher limit is required for LP filter')
+        elif ftype == 'HP':
+            if fhigh is not None:
+                raise VisaError('cannot specify frequency higher limit for HP filter')
+            if flow is None:
+                raise VisaError('frequency lower limit is required for HP filter')
+        else:
+            if flow is None or fhigh is None:
+                raise VisaError(
+                    f'frequency lower and higher limits are required for {ftype} filter')
+            if flow is not None and fhigh is not None:
+                if flow >= fhigh:
+                    raise VisaError(
+                        f'frequency lower limit ({flow} Hz) must be smaller than higher limit ({fhigh} Hz)')
+        tdiv = self.get_temporal_scale()  # s/div
+        flims = np.asarray(self.FILTER_REL_LIMS) / tdiv  # Hz
+        flims_str = ' - '.join([f'{si_format(f, 1)}Hz' for f in flims])
+        for k, f in {'flow': flow, 'fhigh': fhigh}.items():
+            if f is not None:
+                if not is_within (f, flims):
+                    raise VisaError(
+                        f'{k} value ({si_format(f, 1)}Hz) outside of frequency limits ({flims_str}) with current temporal scale ({si_format(tdiv, 1)}s/div)')
+        fdict = {'flow': flow, 'fhigh': fhigh}
+        fdict = {k: v for k, v in fdict.items() if v is not None}
+        fstr = ', '.join([f'{k} = {si_format(f, 1)}Hz' for k, f in fdict.items()])
+        logger.info(f'setting {ftype} filter on channel {ich} with {fstr}')
+        # Generate instruction code
+        s = f'C{ich}:FILTS TYPE,{ftype}'
+        if flow is not None:
+            sf = si_format(flow, 1, space='').upper()
+            s = f'{s},LOWLIMIT,{sf}Hz'
+        if fhigh is not None:
+            sf = si_format(fhigh, 1, space='').upper()
+            s = f'{s},UPPLIMIT,{sf}Hz'
+        self.write(s)
+    
+    def enable_filter(self, ich):
+        ''' Turn on filter on spefific channel trace '''
+        self.check_channel_index(ich)
+        self.write(f'C{ich}: FILT ON')
+    
+    def disable_filter(self, ich):
+        ''' Turn off filter on spefific channel trace '''
+        self.check_channel_index(ich)
+        self.write(f'C{ich}: FILT OFF')
+    
+    def is_filter_enabled(self, ich):
+        ''' Check whether filter is enabled on spefific channel trace '''
+        self.check_channel_index(ich)
+        out = self.query(f'C{ich}: FILT?')
+        out_rgxp = f'C{ich}:FILT (ON|OFF)'
+        mo = re.match(out_rgxp, out)
+        return {'ON': True, 'OFF': False}[mo.group(1)]
+    
     # --------------------- PROBES ---------------------
 
     def get_probe_attenuation(self, ich):
@@ -273,8 +360,6 @@ class BKScope(VisaInstrument):
         self.write(f'C{ich}:ATTN {value}')
 
     # --------------------- CURSORS ---------------------
-    
-    # CRST?
 
     def set_cursor_position(self, ich, ctype, cpos):
         ''' 

@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-10-12 15:37:06
+# @Last Modified time: 2022-10-12 16:38:17
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -64,18 +64,28 @@ try:
     #     cval = bkscope.get_cursor_value(ich, ctype)
     #     logger.info(f'channel {ich} {ctype} values: {cval}')
 
-    # Acquisition settings
-    print('ACQUISITION')
-    logger.info(f'acquisition status: {bkscope.get_acquisition_status()}')
-    logger.info(f'sample rate = {si_format(bkscope.get_sample_rate())}Hz')
-    logger.info(f'# samples in last acquisition = {bkscope.get_nsamples(1)}')
-    logger.info(f'interpolation type = {bkscope.get_interpolation_type()}')
-    acqtype = bkscope.get_acquisition_type()
-    logger.info(f'acquisition type: {acqtype}')
-    if bkscope.get_acquisition_type() == 'AVERAGE':
-        logger.info(f'# sweeps / acq: {bkscope.get_nsweeps_per_acquisition()}')
-    bkscope.arm_acquisition()
-    logger.info(f'TRMD = {bkscope.get_trigger_mode()}')
+    # Filter settings
+    print('FILTER')
+    ich = 1
+    # bkscope.enable_bandwith_filter(ich)
+    fc = 15e6  # cutoff frequency (Hz)
+    bkscope.set_temporal_scale(10e-6)
+    bkscope.set_filter(ich, 'LP', fhigh=fc)
+    bkscope.enable_filter(ich)
+    print(bkscope.is_filter_enabled(ich))
+
+    # # Acquisition settings
+    # print('ACQUISITION')
+    # logger.info(f'acquisition status: {bkscope.get_acquisition_status()}')
+    # logger.info(f'sample rate = {si_format(bkscope.get_sample_rate())}Hz')
+    # logger.info(f'# samples in last acquisition = {bkscope.get_nsamples(1)}')
+    # logger.info(f'interpolation type = {bkscope.get_interpolation_type()}')
+    # acqtype = bkscope.get_acquisition_type()
+    # logger.info(f'acquisition type: {acqtype}')
+    # if bkscope.get_acquisition_type() == 'AVERAGE':
+    #     logger.info(f'# sweeps / acq: {bkscope.get_nsweeps_per_acquisition()}')
+    # bkscope.arm_acquisition()
+    # logger.info(f'TRMD = {bkscope.get_trigger_mode()}')
 
     # Waveform parameters
     # print('WAVEFORM PARAMS')
