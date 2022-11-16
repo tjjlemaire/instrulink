@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-10-12 16:42:41
+# @Last Modified time: 2022-11-16 11:36:55
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -18,7 +18,7 @@ from .visa_instrument import *
 
 class BKScope(VisaInstrument):
 
-    USB_ID = '378C18113'
+    USB_ID = '378[A-Z]181\d+'
     NO_ERROR_CODE = 'CMR 0'
     PREFIX = ''
     UNITS = ['S', 'V', '%', 'Hz', 'Sa']

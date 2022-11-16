@@ -2,11 +2,12 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 09:59:41
+# @Last Modified time: 2022-11-16 11:40:47
 
 import abc
 import pyvisa
 import time
+import re
 import threading
 
 from .logger import logger
@@ -47,10 +48,11 @@ class VisaInstrument(metaclass=abc.ABCMeta):
         resources = rm.list_resources()
         if len(resources) == 0:
             raise VisaError('no instrument detected')
-        res_id = next((item for item in resources if self.USB_ID in item), None)
+        res_id = next((item for item in resources if re.search(self.USB_ID, item) is not None), None)
         if res_id is None:
+            res_str = '\n'.join([f'  - {r}' for r in resources])
             raise VisaError(
-                f'instrument ID ({self.USB_ID}) not detected in USB resources:\n{resources}.\
+                f'instrument ID "{self.USB_ID}" not detected in USB resources:\n{res_str}.\
                 \nPlease check the USB connection or update the instrument USB ID.')
         self.instrument_handle = rm.open_resource(res_id)
         # Reset instrument, clear error queue and disable all outputs

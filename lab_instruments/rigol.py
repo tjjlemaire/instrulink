@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-09-08 11:02:13
+# @Last Modified time: 2022-11-16 11:52:53
 
 import time
 
@@ -15,7 +15,7 @@ from .si_utils import si_format
 
 class RigolDG1022Z(WaveformGenerator):
 
-    USB_ID = 'DG1Z'
+    USB_ID = 'DG1ZA\d+'
     NO_ERROR_CODE = '0,"No error"'
     ANGLE_UNITS = ('DEG')
     MAX_LEN_TEXT = 40
