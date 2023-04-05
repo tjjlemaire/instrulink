@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-11-16 11:40:47
+# @Last Modified time: 2023-04-05 11:45:56
 
 import abc
 import pyvisa

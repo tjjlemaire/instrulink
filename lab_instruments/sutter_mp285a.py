@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-09-14 18:14:03
+# @Last Modified time: 2023-04-05 11:49:22
 
 import serial
 import struct
@@ -122,6 +122,9 @@ class SutterMP285A:
     # def __del__(self):
     #     logger.info(f'releasing {repr(self)} resource')
     #     self.instrument_handle.close() 
+
+    def get_name(self):
+        return self.__class__.__name__
     
     def write(self, cmd, convert_to_bytes=True):
         ''' Write a command into the serial instrument '''
