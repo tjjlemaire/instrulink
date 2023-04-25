@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-11-16 11:52:53
+# @Last Modified time: 2023-04-25 13:27:41
 
 import time
 
@@ -351,7 +351,7 @@ class RigolDG1022Z(WaveformGenerator):
         ''' Start a trigger loop with a specific channel '''
         self.set_trigger_source(ich, 'INT')
     
-    def set_gating_pulse_train(self, ich, PRF, Vpp, T, tburst):
+    def set_gating_pulse_train(self, ich, PRF, Vpp, T, tburst, trig_source='EXT'):
         '''
         Set a gating pulse train on a specific channel
         
@@ -360,6 +360,7 @@ class RigolDG1022Z(WaveformGenerator):
         :param Vpp: pulse amplitude (V)
         :param T: burst repetition period (s)
         :param tburst: burst duration (s)
+        :param trig_source: trigger source (default: external)
         '''
         # Apply pulse with specific frequency, amplitude and offset
         self.apply_pulse(ich, PRF, Vpp, offset=Vpp / 2.)
@@ -367,7 +368,7 @@ class RigolDG1022Z(WaveformGenerator):
         self.set_pulse_width(ich, self.TTL_PWIDTH)
         # Set pulse idle level to "bottom"
         self.set_burst_idle_level(ich, 'BOTTOM')
-        # Set channel trigger source to external
+        # Set channel trigger source to external (to avoid erroneous outputs upon setting)
         self.set_trigger_source(ich, 'EXT')
         # Set burst repetition period
         self.set_burst_internal_period(ich, T)  # s
@@ -375,11 +376,11 @@ class RigolDG1022Z(WaveformGenerator):
         self.set_burst_duration(ich, tburst)  # s
         # Enable burst mode on channel
         self.enable_burst(ich)
-        # Set channel trigger source to external
-        self.set_trigger_source(ich, 'EXT')
+        # Set channel trigger source
+        self.set_trigger_source(ich, trig_source)
 
     def set_gated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, mod_Vpp=None, mod_T=2.,
-                             ich_mod=1, ich_sine=2):
+                             ich_mod=1, ich_sine=2, mod_trig_source='EXT'):
         '''
         Set sine burst on channel 2 gated by channel 1 (used for pulsed US stimulus)
         
@@ -390,6 +391,9 @@ class RigolDG1022Z(WaveformGenerator):
         :param DC: duty cycle (%)
         :param mod_Vpp: amplitude of the modulating square pulse (default = 5 Vpp)
         :param mod_T: repetition period of the modulating square pulse (default = 2s)
+        :param ich_mod: index of the modulating signal channel
+        :param ich_sine: index of the carrier signal channel
+        :param mod_trig_source: trigger source of the modulating channel (default: external)
         '''
         if mod_Vpp is None:
             mod_Vpp = self.TTL_PAMP / MV_TO_V
@@ -398,14 +402,16 @@ class RigolDG1022Z(WaveformGenerator):
         # Disable all outputs
         self.disable_output()
         # Set gating channel parameters
-        self.set_gating_pulse_train(ich_mod, PRF, mod_Vpp, mod_T, tstim)
+        self.set_gating_pulse_train(
+            ich_mod, PRF, mod_Vpp, mod_T, tstim, trig_source=mod_trig_source)
+
         # Set sinewave channel parameters
-        ich = 2
-        self.apply_sine(ich, Fdrive, Vpp)
-        self.set_trigger_source(ich, 'EXT')
-        self.set_burst_duration(ich, DC / (100 * PRF))  # s
-        self.enable_burst(ich)
-        self.set_trigger_source(ich, 'EXT')
+        self.apply_sine(ich_sine, Fdrive, Vpp)
+        self.set_trigger_source(ich_sine, 'EXT')
+        self.set_burst_duration(ich_sine, DC / (100 * PRF))  # s
+        self.enable_burst(ich_sine)
+        self.set_trigger_source(ich_sine, 'EXT')
+
         # Enable all outputs (only if amplitude is > 0)
         if Vpp > 0.:
             self.enable_output()
