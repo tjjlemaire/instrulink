@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-04-05 11:49:22
+# @Last Modified time: 2023-04-25 14:58:10
 
 import serial
 import struct
@@ -75,7 +75,7 @@ class SutterMP285A:
     ]
     BIT15 = 2**15  # Bit 15 position value
 
-    def __init__(self, timeout=10.):
+    def __init__(self, timeout=10., lock=False):
         '''
         Initialization
 

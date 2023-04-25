@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-04-05 11:45:56
+# @Last Modified time: 2023-04-25 14:57:48
 
 import abc
 import pyvisa
@@ -22,11 +22,13 @@ class VisaInstrument(metaclass=abc.ABCMeta):
     ''' Generic interface to a VISA instrument using the SCPI command interface '''
 
     PREFIX = ''
+    _lock = threading.Lock()
 
-    def __init__(self, testmode=False):
+    def __init__(self, testmode=False, lock=False):
         ''' Initialization. '''
         self.instrument_handle = None
         self.testmode = testmode
+        self.lock = lock
         if not testmode:
             self.connect()
 
@@ -75,27 +77,50 @@ class VisaInstrument(metaclass=abc.ABCMeta):
     
     def query(self, text):
         ''' Query instrument and return response. '''
+        if self.lock:
+            self._lock.acquire()
         text = self.process_text(text)
         logger.debug(f'QUERY: {text}')
         if not self.testmode:
-            return self.instrument_handle.query(text)[:-1]
+            out = self.instrument_handle.query(text)[:-1]
+        else: 
+            out = None
+        if self.lock:
+            self._lock.release()
+        return out
     
     def query_binary_values(self, text, *args, **kwargs):
+        if self.lock:
+            self._lock.acquire()
         text = self.process_text(text)
         logger.debug(f'QUERY_BINARY_VALUES: {text}')
         if not self.testmode:
-            return self.instrument_handle.query_binary_values(text, *args, **kwargs)
+            out = self.instrument_handle.query_binary_values(text, *args, **kwargs)
+        else:
+            out = None
+        if self.lock:
+            self._lock.release()
+        return out
 
     def write(self, text):
         ''' Send command to instrument. '''
+        if self.lock:
+            self._lock.acquire()
         text = self.process_text(text)
         logger.debug(f'WRITE: {text}')
         if not self.testmode:
             self.instrument_handle.write(f'{text}')
+        if self.lock:
+            self._lock.release()
     
     def read_raw(self):
         ''' Read the raw binary content of an instrument answer '''
-        return self.instrument_handle.read_raw()
+        if self.lock:
+            self._lock.acquire()
+        out = self.instrument_handle.read_raw()
+        if self.lock:
+            self._lock.release()
+        return out
 
     def reset(self):
         ''' Reset the function generator to its factory default state '''
