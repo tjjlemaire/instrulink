@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-04-25 14:10:41
+# @Last Modified time: 2023-05-08 17:36:43
 
 import time
 
@@ -303,20 +303,20 @@ class RigolDG1022Z(WaveformGenerator):
     def get_trigger_slope(self, ich):
         self.check_channel_index(ich)
         return self.query(f'SOUR{ich}:BURS:TRIG:SLOP?')
-
-    def single_pulse(self, ich):
-        self.check_channel_index(ich)
-        logger.info(f'sending single pulse on channel {ich}...')
-        self.set_trigger_source(ich, 'MAN')
-        self.enable_output_channel(ich)
-        self.trigger_channel(ich)
-        self.wait()
     
     def wait_for_external_trigger(self, ich):
+        ''' Set up channel to wait for external trigger. '''
         self.check_channel_index(ich)
         logger.info(f'waiting for external trigger on channel {ich}...')
-        self.set_trigger_source('EXT')
-        self.enable_output()
+        self.set_trigger_source(ich, 'EXT')
+        self.enable_output_channel(ich)
+    
+    def wait_for_manual_trigger(self, ich):
+        ''' Set up channel to wait for manual trigger. '''
+        self.check_channel_index(ich)
+        logger.info(f'waiting for manual/programmatic trigger on channel {ich}...')
+        self.set_trigger_source(ich, 'MAN')
+        self.enable_output_channel(ich)
 
     # --------------------- TRIGGER OUTPUT ---------------------
     
@@ -338,14 +338,12 @@ class RigolDG1022Z(WaveformGenerator):
         return self.query(f'SOUR{ich}:BURS:TRIGO:SLOP?')
 
     def trigger_channel(self, ich):
-        ''' Trigger specific channel '''
+        ''' Trigger specific channel programmatically. '''
         self.check_channel_index(ich)
-        source = self.get_trigger_source(ich)
-        self.set_trigger_source(ich, 'MAN')
+        logger.info(f'triggering channel {ich} programmatically...')
         self.write(f'SOUR{ich}:BURS:TRIG:IMM')
-        self.display_for(f'triggered channel {ich} instrument triggered', duration=0.5) 
-        if source != 'MAN':
-            self.set_trigger_source(1, source)
+        self.display_for(f'triggered channel {ich} instrument triggered', duration=0.5)
+        self.wait()
 
     def start_trigger_loop(self, ich):
         ''' Start a trigger loop with a specific channel '''
