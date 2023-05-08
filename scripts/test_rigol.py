@@ -2,11 +2,12 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 09:57:51
+# @Last Modified time: 2023-05-08 17:43:22
 
 ''' Initiate test sequence with Rigol waveform generator. '''
 
 import logging
+import time
 
 from lab_instruments.visa_instrument import VisaError
 from lab_instruments.rigol import RigolDG1022Z
@@ -20,8 +21,8 @@ try:
     # Grab function generator
     instrument = RigolDG1022Z()
 
-    # Run test output sequence
-    instrument.test_output()
+    # # Run test output sequence
+    # instrument.test_output()
 
     # Set stimulus parameters
     Fdrive = 2.1e6  # Hz
@@ -29,7 +30,10 @@ try:
     PRF= 100. # Hz
     DC = 50.  # %
     tstim = 0.2  # s
-    instrument.set_gated_sine_burst(Fdrive, Vpp, tstim, PRF, DC)
+    instrument.set_gated_sine_burst(Fdrive, Vpp, tstim, PRF, DC, mod_trig_source='MAN')
+
+    time.sleep(3)
+    instrument.trigger_channel(1)
 
     # # Test smoothed waveform
     # f = 10e3  # carrier frequency (Hz)

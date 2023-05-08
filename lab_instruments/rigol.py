@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-08 17:36:43
+# @Last Modified time: 2023-05-08 17:46:04
 
 import time
 
@@ -342,7 +342,6 @@ class RigolDG1022Z(WaveformGenerator):
         self.check_channel_index(ich)
         logger.info(f'triggering channel {ich} programmatically...')
         self.write(f'SOUR{ich}:BURS:TRIG:IMM')
-        self.display_for(f'triggered channel {ich} instrument triggered', duration=0.5)
         self.wait()
 
     def start_trigger_loop(self, ich):

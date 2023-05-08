@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-09-08 12:34:20
+# @Last Modified time: 2023-05-08 17:45:53
 
 import abc
 import numpy as np
@@ -409,14 +409,14 @@ class WaveformGenerator(VisaInstrument):
         if verbose:
             self.display_for('instrument triggered', duration=0.5)
 
-    @abc.abstractmethod 
-    def single_pulse(self):
-        ''' Send single pulse via internal trigger command. '''
-        raise NotImplementedError
-
     @abc.abstractmethod
     def wait_for_external_trigger(self, *args, **kwargs):
         ''' Wait for an external trigger '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def wait_for_manual_trigger(self, *args, **kwargs):
+        ''' Wait for a manual/programmatic trigger '''
         raise NotImplementedError
 
     # --------------------- TRIGGER OUTPUT ---------------------
