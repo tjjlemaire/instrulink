@@ -2,17 +2,19 @@
 # @Author: Theo Lemaire
 # @Date:   2022-08-08 10:11:50
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 09:57:29
+# @Last Modified time: 2023-05-10 11:09:09
 
-from lab_instruments.camera import *
+from lab_instruments.camera import grab_camera, TriggerSource
 
 # Grab camera
 cam = grab_camera()
 
-# Acquire videos
+# Define acquisition settings
 duration = 10.  # s
 nacqs = 10
-output_fname = 'D:/Theo/testacq/video_avi3.mp4'
+output_fname = 'D:/Theo/testacq/test_video.mp4'
+
+# Acquire videos
 try:
     cam.acquire(
         output_fname, duration, nacqs=nacqs, 

@@ -2,36 +2,76 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-11-16 11:36:55
+# @Last Modified time: 2023-05-10 19:05:27
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
-import io
 import struct
-from PIL import Image
 
 from .constants import *
 from .si_utils import *
 from .utils import is_within
-from .visa_instrument import *
+from .oscilloscope import Oscilloscope
+from .visa_instrument import VisaError
+from .logger import logger
 
+class BK2555(Oscilloscope):
 
-class BKScope(VisaInstrument):
-
-    USB_ID = '378[A-Z]181\d+'
-    NO_ERROR_CODE = 'CMR 0'
-    PREFIX = ''
-    UNITS = ['S', 'V', '%', 'Hz', 'Sa']
-    CHANNELS = (1, 2, 3, 4)
+    # General parameters
+    USB_ID = '378[A-Z]181\d+'  # USB identifier
+    PREFIX = ''  # prefix to be added to each command
+    TIMEOUT_SECONDS = 20.  # long timeout to allow slow commands (e.g. auto-setup)
+    CHANNELS = (1, 2, 3, 4)  # available channels
     NHDIVS = 18  # Number of horizontal divisions
     NVDIVS = 8  # Number of vertical divisions
-    NAVGS = (1, 4, 16, 32, 64, 128, 256)
-    ACQ_TYPES = ('PEAK_DETECT','SAMPLING','AVERAGE')
-    INTERP_TYPES = ('linear', 'sine')
-    CURSOR_TYPES = ('HREF', 'HDIF', 'VREF', 'VDIF', 'TREF', 'TDIF')
-    CVALUES_TYPES = ('HREL', 'VREL')
-    FILTER_TYPES = ('LP', 'HP', 'BP', 'BR')
+    NO_ERROR_CODE = 'CMR 0'  # error code returned when no error
+    MAX_VDIV = 5.  # Max voltage per division (V)
+    TBASES = [1, 2.5, 5]  # timebase relative values
+    TFACTORS = np.logspace(-9, 1, 11)  # timebase multiplying factors
+    TDIVS = np.ravel((np.tile(TBASES, (TFACTORS.size, 1)).T * TFACTORS).T)  # timebase values
+
+    # Acquisition parameters
+    COUPLING_MODES = (  # coupling modes
+        'A1M',  # alternating current, 1 MOhm input impedance
+        'A50',  # alternating current, 50 Ohm input impedance
+        'D1M',  # direct current, 1 MOhm input impedance
+        'D50',  # direct current, 50 Ohm input impedance
+        'GND'   # ground
+    )
+    ACQ_TYPES = ('PEAK_DETECT','SAMPLING','AVERAGE')  # acquisition types
+    NAVGS = (1, 4, 16, 32, 64, 128, 256)  # number of samples to average for average acquisition
+    INTERP_TYPES = ('linear', 'sine')  # interpolation types
+
+    # Trigger parameters
+    TRIGGER_MODES = ('AUTO', 'NORM', 'SINGLE', 'STOP')  # trigger modes
+    TRIGGER_COUPLING_MODES = ('AC', 'DC', 'HFREJ', 'LFREJ')  # trigger coupling modes
+    TRIG_TYPES = (  # trigger types
+        'EDGE',  # edge trigger
+        'GLIT',  # pulse trigger
+        'INTV',  # slope trigger
+        'TV'  # video trigger
+    )
+    TRIGGER_SLOPES = ('NEG', 'POS', 'WINDOW')  # trigger slopes
+    HOLD_TYPES = (  # pulse types
+        'TI',  # holdoff
+        'PS',  # if pulse width is smaller than the set value (in GLIT mode)
+        'PL',  # if pulse width is larger than the set value (in GLIT mode)
+        'PE',  # if pulse width is equal with the set value (in GLIT mode)
+        'IS',  # if interval is smaller than the set value (in INTV mode)
+        'IL',  # if interval is larger than the set value (in INTV mode)
+        'IE'   # if interval is equal with the set value (in INTV mode)
+    )
+
+    # Cursor parameters
+    CURSOR_TYPES = ('HREF', 'HDIF', 'VREF', 'VDIF', 'TREF', 'TDIF')  # cursor types
+    CVALUES_TYPES = ('HREL', 'VREL')  # cursor value types
+
+    # Filter parameters
+    FILTER_TYPES = ('LP', 'HP', 'BP', 'BR')  # filter types
     FILTER_REL_LIMS = (2.5, 230)  # Filter cutoff limits (Hz * (s/div) = 1/div)
+
+    # Unit parameters
+    UNITS = ['S', 'V', '%', 'Hz', 'Sa']  # valid units for I/O communication
     units_per_param = {
         'PKPK': 'V',  # peak-to-peak
         'MAX': 'V',  # maximum
@@ -57,67 +97,42 @@ class BKScope(VisaInstrument):
         'DUTY': '%',  # duty cycle
         'NDUTY': '%'  # negative duty cycle
     }
-    TRIGGER_MODES = ('AUTO', 'NORM', 'SINGLE', 'STOP')
-    TRIGGER_SLOPES = ('NEG', 'POS', 'WINDOW')
-    TDIV_REGEXP = f'TDIV ({SI_REGEXP})([A-z]+)'
-    VDIV_REGEXP = f'C{{}}:VDIV ({SI_REGEXP})([A-z]+)'
-    VOFF_REGEXP = f'C{{}}:OFST ({SI_REGEXP})([A-z]+)'
-    TRLV_REGEXP = f'C{{}}:TRLV ({SI_REGEXP})([A-z]+)'
-    TRSL_REGEXP = f'C{{}}:TRSL ([A-z]+)'
-    ATTN_REGEXP = f'C{{}}:ATTN ({INT_REGEXP})'
-    TRCP_REGEXP = 'C{}:TRCP ([A-z]+)'
-    TRMD_REGEXP = 'TRMD ([A-z]+)'
-    TRDL_REGEXP = f'TRDL ({FLOAT_REGEXP})([A-z]+)'
-    SARA_REGEXP = f'SARA ({FLOAT_REGEXP})([A-z]+)'
-    AVGA_REGEXP = f'AVGA ({INT_REGEXP})'
-    SXSA_REGEXP = '(SXSA) (ON|OFF)'
-    ACQW_REGEXP = '(ACQW) (AVERAGE,?\d*|SAMPLING|PEAK_DETECT)'
-    SANU_REGEXP = f'SANU ({INT_REGEXP})'
-    PAVA_REGEXP = f'C{{}}:PAVA {{}},({SI_REGEXP})([A-z]+)'
-    SAST_REGEXP = 'SAST (.+)'
-    WFSU_REGEXP = 'WFSU SP,([0-9]+),NP,([0-9]+),FP,([0-9]+),SN,([0-9]+)'
-    CFMT_REGEXP = '^CFMT (DEF9|IND0|OFF),(BYTE|WORD),(BIN|HEX)$'
-    TRSE_REGEXP = f'TRSE (EDGE|GLIT|INTV|TV),SR,C({INT_REGEXP}),HT,(TI|PS|PL|PE|IS|IL|IE),HV,({FLOAT_REGEXP})([A-z]+)'
-    TBASES = [1, 2.5, 5]
-    TWEIGHTS = np.logspace(-9, 1, 11)
-    TDIVS = np.ravel((np.tile(TBASES, (TWEIGHTS.size, 1)).T * TWEIGHTS).T)
-    TIMEOUT_SECONDS = 20.  # long timeout to allow slow commands (e.g. auto-setup)
-    TRIG_TYPES = (  # trigger types
-        'EDGE',  # edge trigger
-        'GLIT',  # pulse trigger
-        'INTV',  # slope trigger
-        'TV'  # video trigger
-    )
-    HOLD_TYPES = (  # pulse types
-        'TI',  # holdoff
-        'PS',  # if pulse width is smaller than the set value (in GLIT mode)
-        'PL',  # if pulse width is larger than the set value (in GLIT mode)
-        'PE',  # if pulse width is equal with the set value (in GLIT mode)
-        'IS',  # if interval is smaller than the set value (in INTV mode)
-        'IL',  # if interval is larger than the set value (in INTV mode)
-        'IE'   # if interval is equal with the set value (in INTV mode)
-    )
-    MAX_VDIV = 5.  # Max voltage per division (V)
 
     # --------------------- MISCELLANEOUS ---------------------
 
-    def connect(self):
-        super().connect()
-        self.timeout = self.TIMEOUT_SECONDS * S_TO_MS
-
     def wait(self, t=None):
+        ''' Wait for previous command to finish. '''
         s = 'WAIT'
         if t is not None:
             s = f'{s} {t}'
         self.write(s)
     
     def get_last_error(self):
+        ''' Query instrument for last error code. '''
         return self.query('CMR?')
-
+    
+    def get_status_byte_register(self):
+        ''' Get the status byte register. '''
+        # Query status byte register
+        out = self.query('*STB?')
+        # Extrat status byte register value (integer from 0 to 255)
+        stb_int = self.process_int_mo(out, f'\*STB ({INT_REGEXP})', 'status byte')
+        # Convert to binary string and extract status byte codes
+        stb_seq = bin(stb_int)[2:].zfill(8)
+        # Assemble outputs as dictionary
+        stb_codes = ['INB', 'DIO1', 'VAB', 'DIO3', 'MAV', 'ESB', 'MSS/RQS', 'DIO7']
+        stb_dict = {k: bool(int(s)) for k, s in zip(stb_codes, stb_seq)}
+        # Remove unecessary codes
+        stb_dict = {k: v for k, v in stb_dict.items() if not k.startswith('DIO')}
+        # Return dictionary
+        return stb_dict
+    
     def lock_front_panel(self):
+        ''' Lock front panel '''
         self.write('LOCK ON')
 
     def unlock_front_panel(self):
+        ''' Unlock front panel '''
         self.write('LOCK OFF')
 
     def calibrate(self):
@@ -131,44 +146,15 @@ class BKScope(VisaInstrument):
     def disable_automatic_calibration(self):
         ''' Disable automatic calibration. '''
         self.write('ACAL OFF')
-
-    def si_process(self, val):
-        ''' Process an input value to be set '''
-        return si_format(val, space='').upper()
-    
-    def process_int_mo(self, out, rgxp, key):
-        ''' Process an integer notation regexp match object '''
-        mo = re.match(rgxp, out)
-        if mo is None:
-            raise VisaError(f'could not extract {key} from "{out}"')
-        return int(mo[1])
-    
-    def process_float(self, val, suffix):
-        if suffix in self.UNITS:
-            exp = 0
-        else:
-            try:
-                exp = SI_powers[suffix[0]]
-            except KeyError:
-                exp = SI_powers[suffix[0].swapcase()]
-        factor = np.float_power(10, exp)
-        return val * factor
-    
-    def process_float_mo(self, out, rgxp, key):
-        ''' Process a float notation regexp match object '''
-        mo = re.match(rgxp, out)
-        if mo is None:
-            raise VisaError(f'could not extract {key} from "{out}"')
-        val = float(mo[1])
-        suffix = mo[2]
-        return self.process_float(val, suffix)
     
     # --------------------- DISPLAY ---------------------
 
     def display_menu(self):
+        ''' Display menu '''
         self.write('MENU ON')
     
     def hide_menu(self):
+        ''' Hide menu '''
         self.write('MENU OFF')
     
     def show_trace(self, ich):
@@ -187,28 +173,16 @@ class BKScope(VisaInstrument):
         out = self.query(f'C{ich}: TRA?')
         return out.endswith('ON')
     
-    def restrict_traces(self, ichs):
-        ''' Restrict trace display to specific channels '''
-        # Show traces for speficied channels
-        for ich in ichs:
-            self.show_trace(ich)
-        # Hide traces for all other channels
-        for ich in list(set(self.CHANNELS) - set(ichs)):
-            if self.is_trace(ich):
-                self.hide_trace(ich)
-
-    def screen_dump(self):
+    def get_screen_binary_img(self):
         '''
-        Obtain the screen information in image format
+        Extract screen capture image in binary format
         
-        :return: PIL image object representing the screenshot
+        :return: binary image
         '''
         # Query image
         self.write('SCDP')
-        # Extract image
-        binary_img = self.read_raw()
-        # Convert image to PIL readable object and return
-        return Image.open(io.BytesIO(binary_img))
+        # Extract image and return
+        return self.read_raw()
 
     # --------------------- SCALES / OFFSETS ---------------------
 
@@ -222,13 +196,13 @@ class BKScope(VisaInstrument):
         # If not in set, replace with closest valid number (in log-distance)
         if value not in self.TDIVS:
             value = self.TDIVS[np.abs(np.log(self.TDIVS) - np.log(value)).argmin()]
-        logger.info(f'setting scope time scale to {value * S_TO_MS:.3f} ms/div')
+        logger.info(f'setting time scale to {value * S_TO_MS:.3f} ms/div')
         self.write(f'TDIV {self.si_process(value)}S')
     
     def get_temporal_scale(self):
         ''' Get the temporal scale (in s/div) '''
         out = self.query('TDIV?')
-        return self.process_float_mo(out, self.TDIV_REGEXP, 'temporal scale')
+        return self.process_float_mo(out, f'TDIV ({SI_REGEXP})([A-z]+)', 'temporal scale')
     
     def set_vertical_scale(self, ich, value):
         ''' Set the vertical sensitivity of the specified channel (in V/div) '''
@@ -237,7 +211,7 @@ class BKScope(VisaInstrument):
             logger.warning(
                 f'target vertical scale ({value} V/div) above instrument limit ({self.MAX_VDIV} V/div) -> restricting')
             value = self.MAX_VDIV
-        logger.info(f'setting oscilloscope channel {ich} vertical scale to {value:.3f} V/div')
+        logger.info(f'setting channel {ich} vertical scale to {value:.3f} V/div')
         self.write(f'C{ich}: VDIV {self.si_process(value)}V')
 
     def get_vertical_scale(self, ich):
@@ -245,11 +219,12 @@ class BKScope(VisaInstrument):
         self.check_channel_index(ich)
         out = self.query(f'C{ich}: VDIV?')
         return self.process_float_mo(
-            out, self.VDIV_REGEXP.format(ich), f'channel {ich} vertical scale')
+            out, f'C{ich}:VDIV ({SI_REGEXP})([A-z]+)', f'channel {ich} vertical scale')
 
     def set_vertical_offset(self, ich, value):
         ''' Set the vertical offset of the specified channel (in V) '''
         self.check_channel_index(ich)
+        logger.info(f'setting channel {ich} vertical offset to {value:.3f} V/div')
         self.write(f'C{ich}: OFST {self.si_process(value)}V')
 
     def get_vertical_offset(self, ich):
@@ -257,19 +232,27 @@ class BKScope(VisaInstrument):
         self.check_channel_index(ich)
         out = self.query(f'C{ich}: OFST?')
         return self.process_float_mo(
-            out, self.VOFF_REGEXP.format(ich), f'channel {ich} vertical offset')
+            out, f'C{ich}:OFST ({SI_REGEXP})([A-z]+)', f'channel {ich} vertical offset')
     
     # --------------------- FILTERS ---------------------
 
     def enable_bandwith_filter(self, ich):
         ''' Turn on bandwidth-limiting low-pass filter for specific channel '''
         self.check_channel_index(ich)
-        self.write(f'BWL C{ich} ON')
+        self.write(f'BWL C{ich}, ON')
     
     def disable_bandwith_filter(self, ich):
         ''' Turn off bandwidth-limiting low-pass filter for specific channel '''
         self.check_channel_index(ich)
-        self.write(f'BWL C{ich} OFF')
+        self.write(f'BWL C{ich}, OFF')
+    
+    def is_bandwith_filter_enabled(self, ich):
+        ''' Query bandwidth-limiting low-pass filter for specific channel '''
+        self.check_channel_index(ich)
+        out = self.query('BWL?')
+        bwl_rgxp = 'BWL ' + ','.join([f'C{c},(ON|OFF)' for c in self.CHANNELS])
+        mo = re.match(bwl_rgxp, out)
+        return mo.group(ich) == 'ON'
     
     def set_filter(self, ich, ftype, flow=None, fhigh=None):
         '''
@@ -340,24 +323,38 @@ class BKScope(VisaInstrument):
         ''' Check whether filter is enabled on spefific channel trace '''
         self.check_channel_index(ich)
         out = self.query(f'C{ich}: FILT?')
-        out_rgxp = f'C{ich}:FILT (ON|OFF)'
-        mo = re.match(out_rgxp, out)
+        mo = re.match(f'C{ich}:FILT (ON|OFF)', out)
         return {'ON': True, 'OFF': False}[mo.group(1)]
     
-    # --------------------- PROBES ---------------------
+    # --------------------- PROBES & COUPLING ---------------------
 
     def get_probe_attenuation(self, ich):
-        ''' Get the vertical attenuation factor of a specific probe '''
+        ''' Get the vertical attenuation factor of a specific channel '''
         self.check_channel_index(ich)
         out = self.query(f'C{ich}:ATTN?')
-        print(out)
-        mo = re.match(self.ATTN_REGEXP.format(ich), out)
+        mo = re.match(f'C{ich}:ATTN ({INT_REGEXP})', out)
         return float(mo[1])
     
     def set_probe_attenuation(self, ich, value):
-        ''' Set the vertical attenuation factor of a specific probe '''
+        ''' Set the vertical attenuation factor of a specific channel '''
         self.check_channel_index(ich)
+        logger.info(f'setting channel {ich} probe attenuation factor to {value}')
         self.write(f'C{ich}:ATTN {value}')
+
+    def get_coupling_mode(self, ich):
+        ''' Get the coupling mode of a specific channel '''
+        out = self.query(f'C{ich}: CPL?')
+        mo = re.match(f'C{ich}:CPL ([A-z0-9]+)', out)
+        return mo[1]
+
+    def set_coupling_mode(self, ich, value):
+        ''' Set the coupling mode of a specific channel '''
+        self.check_channel_index(ich)
+        if value not in self.COUPLING_MODES:
+            raise VisaError(
+                f'invalid coupling mode: {value} (candidates are {self.COUPLING_MODES})')
+        logger.info(f'setting channel {ich} coupling mode to {value}')
+        self.write(f'C{ich}: CPL {value}')
 
     # --------------------- CURSORS ---------------------
 
@@ -399,8 +396,7 @@ class BKScope(VisaInstrument):
             raise VisaError(
                 f'invalid cursor type: {ctype} (candidates are {self.CURSOR_TYPES}')
         out = self.query(f'C{ich}: CRST? {ctype}')
-        out_rgxp = f'C{ich}:CRST {ctype},({FLOAT_REGEXP})'
-        mo = re.match(out_rgxp, out)
+        mo = re.match(f'C{ich}:CRST {ctype},({FLOAT_REGEXP})', out)
         return float(mo.group(1))
 
     def get_cursor_value(self, ich, ctype):
@@ -433,50 +429,10 @@ class BKScope(VisaInstrument):
 
     # --------------------- TRIGGER ---------------------
 
-    def get_trigger_level(self, ich):
-        ''' Get the trigger level of the specified trigger source (in V) '''
-        self.check_channel_index(ich)
-        out = self.query(f'C{ich}:TRLV?')
-        return self.process_float_mo(
-            out, self.TRLV_REGEXP.format(ich), f'channel {ich} trigger level')
-
-    def set_trigger_level(self, ich, value):
-        ''' Set the trigger level of the specified trigger source (in V) '''
-        self.check_channel_index(ich)
-        self.write(f'C{ich}:TRLV {self.si_process(value)}V')
-
-    def set_trigger_halfamp(self):
-        ''' 
-        Set the trigger level of the specified trigger source to the
-        centre of the signal amplitude.
-        '''
-        self.write('SET50')
-    
-    def get_trigger_delay(self):
-        ''' Get the trigger delay of the specified trigger source (in s) '''
-        out = self.query('TRDL?')
-        return self.process_float_mo(out, self.TRDL_REGEXP, 'trigger delay')
-
-    def set_trigger_delay(self, value):
-        ''' Set the trigger delay (in s) '''
-        logger.info(f'setting scope trigger time delay to {value * S_TO_MS:.3f} ms')
-        self.write(f'TRDL {self.si_process(value)}S')
-
-    def get_trigger_coupling_mode(self, ich):
-        ''' Get the trigger coupling of the selected source. '''
-        self.check_channel_index(ich)
-        out = self.query(f'C{ich}: TRCP?')
-        return re.match(self.TRCP_REGEXP.format(ich), out)[1]
-    
-    def set_trigger_coupling_mode(self, ich, value):
-        ''' Set the trigger coupling of the selected source. '''
-        self.check_channel_index(ich)
-        self.write(f'C{ich}: TRCP {value}')
-    
     def get_trigger_mode(self):
         ''' Get trigger mode '''
         out = self.query('TRMD?')
-        return re.match(self.TRMD_REGEXP, out)[1]
+        return re.match('TRMD ([A-z]+)', out)[1]
      
     def set_trigger_mode(self, value):
         ''' Set trigger mode '''
@@ -485,18 +441,21 @@ class BKScope(VisaInstrument):
             raise VisaError(
                 f'{value} not a valid trigger mode (candidates are {self.TRIGGER_MODES})')
         self.write(f'TRMD {value}')
-
-    def get_trigger_options(self):
-        ''' Get trigger type and options '''
-        out = self.query(f'TRIG_SELECT?')
-        mo = re.match(self.TRSE_REGEXP, out)
-        return {
-            'type': mo[1],
-            'source': int(mo[2]),
-            'hold_type': mo[3],
-            'hold_val': self.process_float(float(mo[4]), mo[5])
-        }
     
+    def get_trigger_coupling_mode(self, ich):
+        ''' Get the trigger coupling of the selected source. '''
+        self.check_channel_index(ich)
+        out = self.query(f'C{ich}: TRCP?')
+        return re.match(f'C{ich}:TRCP ([A-z]+)', out)[1]
+    
+    def set_trigger_coupling_mode(self, ich, value):
+        ''' Set the trigger coupling of the selected source. '''
+        self.check_channel_index(ich)
+        if value not in self.TRIGGER_COUPLING_MODES:
+            raise VisaError(
+                f'{value} not a valid trigger coupling mode (candidates are {self.TRIGGER_COUPLING_MODES})')
+        self.write(f'C{ich}: TRCP {value}')
+
     def get_trigger_type(self):
         ''' Get trigger type '''
         return self.get_trigger_options()['type']
@@ -515,15 +474,15 @@ class BKScope(VisaInstrument):
     def set_trigger_source(self, ich):
         ''' Set trigger source channel index '''
         self.check_channel_index(ich)
-        logger.info(f'setting oscilloscope trigger source to channel {ich}')
+        logger.info(f'setting trigger source to channel {ich}')
         ttype = self.get_trigger_type()
         self.write(f'TRSE {ttype},SR,C{ich}')
-
+    
     def get_trigger_slope(self, ich):
         ''' Get trigger slope of a particular trigger source '''
         self.check_channel_index(ich)
         out = self.query(f'C{ich}: TRSL?')
-        return re.match(self.TRSL_REGEXP.format(ich), out)[1]
+        return re.match(f'C{ich}:TRSL ([A-z]+)', out)[1]
     
     def set_trigger_slope(self, ich, value):
         ''' Set trigger slope of a particular trigger source '''
@@ -532,15 +491,57 @@ class BKScope(VisaInstrument):
         if value not in self.TRIGGER_SLOPES:
             raise VisaError(
                 f'{value} not a valid trigger slope (candidates are {self.TRIGGER_SLOPES})')
+        logger.info(f'setting channel {ich} trigger slope to {value}')
         self.write(f'C{ich}: TRSL {value}')
+
+    def get_trigger_level(self, ich):
+        ''' Get the trigger level of the specified trigger source (in V) '''
+        self.check_channel_index(ich)
+        out = self.query(f'C{ich}:TRLV?')
+        return self.process_float_mo(
+            out, f'C{ich}:TRLV ({SI_REGEXP})([A-z]+)', f'channel {ich} trigger level')
+
+    def set_trigger_level(self, ich, value):
+        ''' Set the trigger level of the specified trigger source (in V) '''
+        self.check_channel_index(ich)
+        logger.info(f'setting channel {ich} trigger level to {si_format(value, 2)}V')
+        self.write(f'C{ich}:TRLV {self.si_process(value)}V')
+
+    def set_trigger_halfamp(self):
+        ''' 
+        Set the trigger level of the specified trigger source to the
+        centre of the signal amplitude.
+        '''
+        self.write('SET50')
+    
+    def get_trigger_delay(self):
+        ''' Get trigger delay (in s) '''
+        out = self.query('TRDL?')
+        return self.process_float_mo(out, f'TRDL ({FLOAT_REGEXP})([A-z]+)', 'trigger delay')
+
+    def set_trigger_delay(self, value):
+        ''' Set trigger delay (in s) '''
+        value = self.check_trigger_delay(value)
+        logger.info(f'setting trigger time delay to {value * S_TO_MS:.3f} ms')
+        self.write(f'TRDL {self.si_process(value)}S')
+
+    def get_trigger_options(self):
+        ''' Get trigger type and options '''
+        out = self.query(f'TRIG_SELECT?')
+        tt_opts = '|'.join(self.TRIG_TYPES)
+        ht_opts = '|'.join(self.HOLD_TYPES)
+        mo = re.match(
+            f'TRSE ({tt_opts}),SR,C({INT_REGEXP}),HT,({ht_opts}),HV,({FLOAT_REGEXP})([A-z]+)', out)
+        return {
+            'type': mo[1],
+            'source': int(mo[2]),
+            'hold_type': mo[3],
+            'hold_val': self.process_float(float(mo[4]), mo[5])
+        }
 
     def force_trigger(self):
         ''' Force the instrument to make 1 acquisition '''
         self.write('FRTR')
-
-    def trg(self):
-        ''' Execute an ARM command '''
-        self.write('*TRG')        
     
     # --------------------- ACQUISITION ---------------------
     
@@ -550,18 +551,11 @@ class BKScope(VisaInstrument):
         (trigger mode) from "stopped" to "single".
         '''
         self.write('ARM')
-    
-    def stop_acquisition(self):
-        '''
-        Immediately stops the acquisition of a signal (if the trigger mode is
-        AUTO or NORM).
-        '''
-        self.write('STOP')
 
     def get_interpolation_type(self):
         ''' Get the type of waveform interpolation (linear or sine) '''
         out = self.query('SXSA?')
-        mo = re.match(self.SXSA_REGEXP, out)
+        mo = re.match('(SXSA) (ON|OFF)', out)
         _, SXSA = mo.groups()
         return {
             'ON': 'sine',
@@ -569,7 +563,7 @@ class BKScope(VisaInstrument):
         }[SXSA]
     
     def set_interpolation_type(self, value):
-        ''' Get the type of waveform interpolation (linear or sine) '''
+        ''' Set the type of waveform interpolation (linear or sine) '''
         if value not in self.INTERP_TYPES:
             raise ValueError(
                 f'invalid interpolation type: {value} (candidates are {self.INTERP_TYPES})')
@@ -582,7 +576,7 @@ class BKScope(VisaInstrument):
     def get_nsweeps_per_acquisition(self):
         ''' Get the number of samples to average from for average acquisition.'''
         out = self.query('AVGA?')
-        return self.process_int_mo(out, self.AVGA_REGEXP, '#sweeps/acquisition')
+        return self.process_int_mo(out, f'AVGA ({INT_REGEXP})', '#sweeps/acquisition')
     
     def set_nsweeps_per_acquisition(self, value):
         ''' Set the number of samples to average from for average acquisition.'''
@@ -597,19 +591,19 @@ class BKScope(VisaInstrument):
     def get_acquisition_status(self):
         ''' Get the acquisition status of the oscilloscope '''
         out = self.query('SAST?')
-        mo = re.match(self.SAST_REGEXP, out)
+        mo = re.match('SAST (.+)', out)
         return mo[1]
     
     def get_sample_rate(self):
         ''' Get the acquisition sampling rate (in samples/second) '''
         out = self.query('SARA?')
-        return self.process_float_mo(out, self.SARA_REGEXP, 'sample rate')
+        return self.process_float_mo(out, f'SARA ({FLOAT_REGEXP})([A-z]+)', 'sample rate')
     
     def get_nsamples(self, ich):
         ''' Get the number of samples in last acquisition in a specific channel '''
         self.check_channel_index(ich)
         out = self.query(f'SANU? C{ich}')
-        mo = re.match(self.SANU_REGEXP, out)
+        mo = re.match(f'SANU ({INT_REGEXP})', out)
         return int(mo[1])
 
     def enable_peak_detector(self):
@@ -623,7 +617,7 @@ class BKScope(VisaInstrument):
     def get_acquisition_type(self):
         ''' Get oscilloscope acquisition type '''
         out = self.query('ACQW?')
-        mo = re.match(self.ACQW_REGEXP, out)
+        mo = re.match('(ACQW) (AVERAGE,?\d*|SAMPLING|PEAK_DETECT)', out)
         _, acqtype = mo.groups()
         return acqtype
     
@@ -644,8 +638,14 @@ class BKScope(VisaInstrument):
         ''' Query the value of a parameter on a particular channel '''
         self.check_channel_index(ich)
         out = self.query(f'C{ich}: PAVA? {pkey}')
-        return self.process_float_mo(
-            out, self.PAVA_REGEXP.format(ich, pkey), f'channel {ich} {pkey}')
+        if '****' in out:
+            raise VisaError(f'could not extract {pkey} from channel {ich}')
+        if out.endswith('%'):
+            return self.process_float_mo(
+                out, f'C{ich}:PAVA {pkey},({FLOAT_REGEXP})(%)', f'channel {ich} {pkey}')
+        else:
+            return self.process_float_mo(
+                out, f'C{ich}:PAVA {pkey},({SI_REGEXP})([A-z]+)', f'channel {ich} {pkey}')
     
     def get_frequency(self, ich):
         ''' Get the waveform frequency on a particular channel '''
@@ -681,7 +681,7 @@ class BKScope(VisaInstrument):
         :return: 3-tuple with (sparsing, number of points, and position of the 1st point)
         '''
         out = self.query('WAVEFORM_SETUP?')
-        mo = re.match(self.WFSU_REGEXP, out)
+        mo = re.match('WFSU SP,([0-9]+),NP,([0-9]+),FP,([0-9]+),SN,([0-9]+)', out)
         sp, npoints, fp, si = [int(x) for x in mo.groups()]
         return sp, npoints, fp, si
     
@@ -714,7 +714,7 @@ class BKScope(VisaInstrument):
         :return: 3-tuple with (block_format, data_type, encoding)
         '''
         out = self.query('COMM_FORMAT?')
-        mo = re.match(self.CFMT_REGEXP, out)
+        mo = re.match('^CFMT (DEF9|IND0|OFF),(BYTE|WORD),(BIN|HEX)$', out)
         bfmt = mo[1]
         dtype = mo[2]
         enc = mo[3]
@@ -722,6 +722,7 @@ class BKScope(VisaInstrument):
 
     @property
     def comunication_format(self):
+        ''' Get a single string summarizing the format features the oscilloscope uses to send waveform data '''
         bfmt, dtype, enc = self.get_comunication_format()
         pdict = {'block format': bfmt, 'data type': dtype, 'encoding': enc}
         l = ['communication format:'] + [f' - {k} = {v}' for k, v in pdict.items()]
@@ -739,8 +740,10 @@ class BKScope(VisaInstrument):
         '''
         # Deduce field size (in bytes) from data type
         s = {'f': 4, 'd': 8, 'l': 4}[dtype]
+        
         # Extract binary segment
         fbin = b''.join(bytes[istart:istart + s])
+        
         # Convert and return
         return struct.unpack(dtype, fbin)[0]
 
@@ -749,40 +752,49 @@ class BKScope(VisaInstrument):
         Get waveform data from a specific channel
         
         :param ich: channel index
-        :return: scaled waveform data (numpy array)
+        :return: 2-tuple of numpy arrays with:
+            - t: time signal (s)
+            - y: waveform signal (V)
         '''
+        # Check channel index
         self.check_channel_index(ich)
+        
         # Retrieve meta data
-        meta = self.query_binary_values(
-            f'C{ich}:WF? DESC',
-            datatype='c')
+        meta = self.query_binary_values(f'C{ich}:WF? DESC', datatype='c')
+        
         # Extract number of sweeps per acquisition
         nsweeps_per_acq = self.extract_from_bytes(meta, istart=148, dtype='l')
         logger.debug(f'# sweeps/acq: {nsweeps_per_acq}')
+        
         # Extract amplitude scale factor and amplitude offset
         vgain = self.extract_from_bytes(meta, istart=156)
         logger.debug(f'vertical gain: {vgain:.5e}')
         voff = self.extract_from_bytes(meta, istart=160)
         logger.debug(f'vertical offset: {voff:.5f} V')
+        
         # Get sampling interval and horizontal offset
         dt = self.extract_from_bytes(meta, istart=176)
         logger.debug(f'sampling interval: {si_format(dt, 3)}s')
         hoff = self.extract_from_bytes(meta, istart=180, dtype='d')
         logger.debug(f'horizontal offset: {hoff} s')
-        # hunit = meta[244].decode('utf-8')
+        
         # Extract waveform data
         y = self.query_binary_values(
             f'C{ich}:WF? DAT2',
             container=np.ndarray,
             datatype='b')
+        
         # Compare data length to expected number of points
         expected_npoints = self.get_waveform_settings()[1]
         if y.size != expected_npoints:
             raise VisaError(
                 f'waveform parsing error: waveform size ({y.size}) does not correspond to expected number of points ({expected_npoints})')
+        
         # Rescale waveform
         y = y * vgain - voff  # V
+        
         # Get time vector
         t = np.arange(y.size) * dt + hoff  # s
+        
+        # Return
         return t, y
-

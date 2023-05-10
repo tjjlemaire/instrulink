@@ -2,10 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:30:00
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-04-05 11:57:48
-
-import numpy as np
-np.set_printoptions(precision=2, formatter={'float': lambda x: f'{x:.2f}'})
+# @Last Modified time: 2023-05-10 11:21:29
 
 from lab_instruments.sutter_mp285a import SutterMP285A, SutterError
 from lab_instruments.logger import logger
@@ -15,28 +12,21 @@ try:
     mp = SutterMP285A()
 
     # Display position, velocity and resolution
-    x = mp.get_position()
-    logger.info(f'position = {x} um')
-    v = mp.get_velocity()
-    logger.info(f'velocity = {v} um/s')
-    res = mp.get_resolution()
-    logger.info(f'motion mode: {mp.res_str(res)}')
+    mp.get_position(verbose=True)
+    mp.get_velocity(verbose=True)
+    mp.get_resolution(verbose=True)
 
     # Change velocity
     mp.set_velocity(1000)
-    v = mp.get_velocity()
-    logger.info(f'velocity = {v} um/s')
+    mp.get_velocity(verbose=True)
 
     # Change motion mode
     mp.set_resolution(0)
-    res = mp.get_resolution()
-    logger.info(f'motion mode: {mp.res_str(res)}')
+    mp.get_resolution(verbose=True)
     
-    # # Move up 1 mm
-    x[2] -= 1000
-    mp.set_position(x)
-    x = mp.get_position()
-    logger.info(f'position = {x} um')
+    # Move up 1 mm
+    mp.translate([0, 0, -1000])
+    mp.get_position(verbose=True)
 
 except SutterError as e:
     logger.error(e)

@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-04-25 14:58:10
+# @Last Modified time: 2023-05-10 11:22:42
 
 import serial
 import struct
@@ -80,6 +80,7 @@ class SutterMP285A:
         Initialization
 
         :param timeout: commands timeout (s)
+        :param lock: whether to lock the instrument during motion (not implemented)
         '''
         self.connect()
         self.timeout = timeout
@@ -89,6 +90,7 @@ class SutterMP285A:
         self.set_velocity(self.HIGH_RES_SPEED_BOUNDS[1])
     
     def __repr__(self):
+        ''' String representation '''
         return f'{self.__class__.__name__}({self.instrument_handle.port})'
     
     def connect(self):
@@ -109,14 +111,17 @@ class SutterMP285A:
 
     @property
     def is_connected(self):
+        ''' Whether the instrument is connected '''
         return self.instrument_handle is not None
     
     @property
     def timeout(self):
+        ''' Timeout (s) '''
         return self.instrument_handle.timeout
     
     @timeout.setter
     def timeout(self, value):
+        ''' Set timeout (s) '''
         self.instrument_handle.timeout = value
 
     # def __del__(self):
@@ -124,6 +129,7 @@ class SutterMP285A:
     #     self.instrument_handle.close() 
 
     def get_name(self):
+        ''' Get controller name '''
         return self.__class__.__name__
     
     def write(self, cmd, convert_to_bytes=True):
@@ -209,6 +215,7 @@ class SutterMP285A:
     
     @property
     def usteps_per_um(self):
+        ''' Get u-steps per um '''
         return self.status_data['STEP_MUL']
 
     def encode_position(self, pos, prefix=None):
@@ -240,10 +247,11 @@ class SutterMP285A:
         return pos_usteps / self.usteps_per_um  # um
     
     def pos_str(self, pos):
+        ''' Return a string representation of a position vector '''
         pos_str = ', '.join([f'{x:.2f}' for x in pos])
         return f'[{pos_str}] um'
     
-    def get_position(self):
+    def get_position(self, verbose=False):
         '''
         Get controller XYZ position (in um)
         
@@ -253,7 +261,8 @@ class SutterMP285A:
         self.write('c')
         # Read position from controller
         pos = self.decode_position()
-        logger.debug(f'stage position: {self.pos_str(pos)}')
+        logfunc = logger.info if verbose else logger.debug
+        logfunc(f'stage position: {self.pos_str(pos)}')
         return pos
     
     def check_coordinate(self, k, v):
@@ -324,18 +333,20 @@ class SutterMP285A:
         
         :param v: XYZ translation vector (um) '''
         pos = self.get_position()
-        self.set_position(pos + v, **kwargs)
+        self.set_position(pos + np.asarray(v), **kwargs)
     
-    def get_velocity(self):
+    def get_velocity(self, verbose=False):
         ''' Get controller motion velocity (um/s) '''
         v = self.status_data['XSPEED']
-        logger.debug(f'velocity = {v} um/s')
+        logfunc = logger.info if verbose else logger.debug
+        logfunc(f'velocity = {v} um/s')
         return v
     
-    def get_resolution(self):
+    def get_resolution(self, verbose=False):
         ''' Get controller motion resolution (0 or 1) '''
         res = self.status_data['SPEED_RES']
-        logger.debug(f'motion mode: {self.res_str(res)}')
+        logfunc = logger.info if verbose else logger.debug
+        logfunc(f'motion mode: {self.res_str(res)}')
         return res
     
     def encode_velocity_and_resolution(self, v, res):
@@ -384,10 +395,12 @@ class SutterMP285A:
             raise SutterError(f'could not set motion speed to {v} um/s (value = {vout} um/s)')
     
     def res_str(self, res):
+        ''' Return a string representation of controller movement resolution '''
         resmode = {0: 'low', 1: 'high'}[res]
         return f'{resmode}-resolution'
     
     def set_resolution(self, res):
+        ''' Set controller motion resolution (0 for low or 1 for high) '''
         logger.info(f'setting motion mode to {self.res_str(res)}')
         self.encode_velocity_and_resolution(self.get_velocity(), res)
         resout = self.get_resolution()
