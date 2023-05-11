@@ -2,10 +2,9 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:30:00
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 08:00:30
+# @Last Modified time: 2023-05-11 13:00:06
 
-from lab_instruments import grab_manipulator, SutterError
-from lab_instruments.logger import logger
+from lab_instruments import grab_manipulator, SutterError, logger
 
 try:
     # Grab micro-manipulator

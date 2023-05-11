@@ -2,10 +2,9 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 12:25:37
+# @Last Modified time: 2023-05-11 12:58:22
 # @Last Modified time: 2022-04-08 21:17:22
 
-import re
 import struct
 import numpy as np
 

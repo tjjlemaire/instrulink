@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-10 15:19:49
+# @Last Modified time: 2023-05-11 12:59:21
 
 import abc
 import pyvisa
@@ -57,7 +57,7 @@ class VisaInstrument(metaclass=abc.ABCMeta):
         if res_id is None:
             res_str = '\n'.join([f'  - {r}' for r in resources])
             raise VisaError(
-                f'instrument ID "{self.USB_ID}" not detected in USB resources:\n{res_str}.\
+                f'{self.__class__.__name__} instrument ID "{self.USB_ID}" not detected in USB resources:\n{res_str}.\
                 \nPlease check the USB connection or update the instrument USB ID.')
 
         # Open resource and store its handle

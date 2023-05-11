@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 12:38:46
+# @Last Modified time: 2023-05-11 12:58:08
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 
 from .constants import *
 from .si_utils import *
-from .utils import is_within
 from .visa_instrument import *
 
 
