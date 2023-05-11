@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 12:58:22
+# @Last Modified time: 2023-05-11 17:31:16
 # @Last Modified time: 2022-04-08 21:17:22
 
 import struct
@@ -38,7 +38,7 @@ class RigolDS1054Z(Oscilloscope):
         'GND'   # ground
     )
     ACQ_TYPES = ('NORM', 'AVER', 'PEAK', 'HRES')  # acquisition types
-    NAVGS = np.power(2, np.arange(1, 11))  # number of sweeps to average from
+    NAVGS = np.power(2, np.arange(0, 11))  # number of sweeps to average from
     INTERP_TYPES = ('LIN', 'OFF')  # interpolation types
 
     # Trigger parameters
@@ -150,7 +150,7 @@ class RigolDS1054Z(Oscilloscope):
         # If not in set, replace with closest valid number (in log-distance)
         if value not in self.TDIVS:
             value = self.TDIVS[np.abs(np.log(self.TDIVS) - np.log(value)).argmin()]
-        logger.info(f'setting time scale to {value * S_TO_MS:.3f} ms/div')
+        logger.info(f'setting time scale to {si_format(value, 2)}s/div')
         self.write(f'TIM:MAIN:SCAL {value}')
     
     def get_temporal_scale(self):
@@ -165,7 +165,7 @@ class RigolDS1054Z(Oscilloscope):
             logger.warning(
                 f'target vertical scale ({value} V/div) above instrument limit ({self.MAX_VDIV} V/div) -> restricting')
             value = self.MAX_VDIV
-        logger.info(f'setting channel {ich} vertical scale to {value:.3f} V/div')
+        logger.info(f'setting channel {ich} vertical scale to {si_format(value, 2)}V/div')
         self.write(f'CHAN{ich}:SCAL {value}')
 
     def get_vertical_scale(self, ich):
@@ -413,7 +413,7 @@ class RigolDS1054Z(Oscilloscope):
     def set_trigger_delay(self, value):
         ''' Set the trigger delay (in s) '''
         self.check_trigger_delay(value)
-        logger.info(f'setting trigger time delay to {value * S_TO_MS:.3f} ms')
+        logger.info(f'setting trigger time delay to {si_format(value, 2)}s')
         self.write(f'TIM:MAIN:OFFS {value}')
 
     def force_trigger(self):
@@ -440,7 +440,7 @@ class RigolDS1054Z(Oscilloscope):
     def set_nsweeps_per_acquisition(self, value):
         ''' Set the number of samples to average from for average acquisition.'''
         if value not in self.NAVGS:
-            raise VisaError(f'Not a valid number of sweeps. Candidates are {self.NAVGS}')
+            raise VisaError(f'Not a valid number of sweeps: {value}. Candidates are {self.NAVGS}')
         if value == 1:
             self.set_acquisition_type('NORM')
         else:

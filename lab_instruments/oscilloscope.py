@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 12:58:08
+# @Last Modified time: 2023-05-11 17:19:47
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -400,6 +400,10 @@ class Oscilloscope(VisaInstrument):
         raise NotImplementedError
     
     # --------------------- WAVEFORMS ---------------------
+
+    def set_waveform_settings(self, *args, **kwargs):
+        ''' Set waveform settings '''
+        pass
 
     @abc.abstractmethod
     def get_waveform_data(self, ich):

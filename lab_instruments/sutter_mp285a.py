@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-10 11:22:42
+# @Last Modified time: 2023-05-11 16:03:27
 
 import serial
 import struct
@@ -108,6 +108,12 @@ class SutterMP285A:
             self.instrument_handler = None
             raise SutterError(
                 f'No connection to {self.__class__.__name__} could be established')
+    
+    def disconnect(self):
+        ''' Disconnect from controller '''
+        logger.info(f'disconnecting from {self}')
+        self.instrument_handle.close()
+        self.instrument_handle = None
 
     @property
     def is_connected(self):
@@ -326,6 +332,7 @@ class SutterMP285A:
     def move_to_origin(self):
         ''' Move to origin '''
         self.set_position([0., 0., 0.])
+        logger.info('moved to origin!')
     
     def translate(self, v, **kwargs):
         '''
@@ -414,6 +421,7 @@ class SutterMP285A:
     def set_origin(self):
         ''' Set origin of the coordinate system to the current position '''
         self.write_and_check('o')
+        logger.info('origin reset!')
     
     def reset(self):
         ''' Reset controller '''

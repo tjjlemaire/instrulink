@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 12:07:07
+# @Last Modified time: 2023-05-11 17:26:57
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -196,7 +196,7 @@ class BK2555(Oscilloscope):
         # If not in set, replace with closest valid number (in log-distance)
         if value not in self.TDIVS:
             value = self.TDIVS[np.abs(np.log(self.TDIVS) - np.log(value)).argmin()]
-        logger.info(f'setting time scale to {value * S_TO_MS:.3f} ms/div')
+        logger.info(f'setting time scale to {si_format(value, 2)}s/div')
         self.write(f'TDIV {self.si_process(value)}S')
     
     def get_temporal_scale(self):
@@ -211,7 +211,7 @@ class BK2555(Oscilloscope):
             logger.warning(
                 f'target vertical scale ({value} V/div) above instrument limit ({self.MAX_VDIV} V/div) -> restricting')
             value = self.MAX_VDIV
-        logger.info(f'setting channel {ich} vertical scale to {value:.3f} V/div')
+        logger.info(f'setting channel {ich} vertical scale to {si_format(value, 2)}V/div')
         self.write(f'C{ich}: VDIV {self.si_process(value)}V')
 
     def get_vertical_scale(self, ich):
@@ -224,7 +224,7 @@ class BK2555(Oscilloscope):
     def set_vertical_offset(self, ich, value):
         ''' Set the vertical offset of the specified channel (in V) '''
         self.check_channel_index(ich)
-        logger.info(f'setting channel {ich} vertical offset to {value:.3f} V/div')
+        logger.info(f'setting channel {ich} vertical offset to {si_format(value, 2)}V/div')
         self.write(f'C{ich}: OFST {self.si_process(value)}V')
 
     def get_vertical_offset(self, ich):
@@ -522,7 +522,7 @@ class BK2555(Oscilloscope):
     def set_trigger_delay(self, value):
         ''' Set trigger delay (in s) '''
         value = self.check_trigger_delay(value)
-        logger.info(f'setting trigger time delay to {value * S_TO_MS:.3f} ms')
+        logger.info(f'setting trigger time delay to {si_format(value, 2)}s')
         self.write(f'TRDL {self.si_process(value)}S')
 
     def get_trigger_options(self):

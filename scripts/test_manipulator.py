@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:30:00
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 13:00:06
+# @Last Modified time: 2023-05-11 16:02:51
 
 from lab_instruments import grab_manipulator, SutterError, logger
 
@@ -26,6 +26,8 @@ try:
     # Move up 1 mm
     mp.translate([0, 0, -1000])
     mp.get_position(verbose=True)
+
+    mp.disconnect()
 
 except SutterError as e:
     logger.error(e)

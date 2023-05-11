@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 15:33:31
+# @Last Modified time: 2023-05-11 16:57:22
 
 import abc
 import pyvisa
@@ -63,10 +63,9 @@ class VisaInstrument(metaclass=abc.ABCMeta):
             raise VisaError('no instrument detected')
         res_id = next((item for item in resources if re.search(self.USB_ID, item) is not None), None)
         if res_id is None:
-            res_str = '\n'.join([f'  - {r}' for r in resources])
             raise VisaError(
-                f'{self.__class__.__name__} instrument ID "{self.USB_ID}" not detected in USB resources:\n{res_str}.\
-                \nPlease check the USB connection or update the instrument USB ID.')
+                f'{self.__class__.__name__} instrument ID "{self.USB_ID}" not detected in USB resources.'
+                ' Check the USB connection or update the instrument USB ID.')
 
         # Open resource and store its handle
         self.instrument_handle = rm.open_resource(res_id)

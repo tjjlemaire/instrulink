@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 13:00:56
+# @Last Modified time: 2023-05-11 17:42:22
 
 import argparse
 import matplotlib.pyplot as plt
@@ -14,13 +14,12 @@ from lab_instruments.constants import TTL_PAMP
 tscale = 1e-3  # temporal scale (s/div)
 vscale = 0.2  # vertical scale (V/div)
 voffset = 0.  # vertical offset (V)
-tlevel = vscale / 2  # trigger level (V)
 tdelay = 5e-3 # 3e-3  # trigger delay (s)
 
 # Parse command line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    '-t', '--type', type=str, default='bk', choices=('bk', 'rigol'), help='Oscilloscope type')
+    '--model', type=str, default=None, help='Oscilloscope model')
 parser.add_argument(
     '--isignal', type=int, default=1, choices=(1, 2, 3, 4), help='Signal channel index')
 parser.add_argument(
@@ -32,7 +31,7 @@ ichs = set([ich_sig, ich_trig]) # set of channel indices
 
 try:
     # Grab oscilloscope object
-    scope = grab_oscilloscope(type=args.type)
+    scope = grab_oscilloscope(key=args.model)
 
     # Display settings
     print('DISPLAY SETTINGS')
@@ -74,7 +73,7 @@ try:
     scope.set_trigger_slope(ich_trig, 'POS')
     logger.info(f'channel {ich_trig} trigger slope = {scope.get_trigger_slope(ich_trig)}')
     if ich_sig == ich_trig:
-        scope.set_trigger_level(ich_trig, tlevel)
+        scope.set_trigger_level(ich_trig, vscale / 2)
     else:
         scope.set_trigger_level(ich_trig, TTL_PAMP / 2)
     logger.info(f'channel {ich_trig} trigger level = {scope.get_trigger_level(ich_trig)} V')
@@ -83,7 +82,7 @@ try:
 
     # Cursor settings
     print('CURSORS SETTINGS')
-    if args.type == 'bk':
+    if args.model == 'bk':
         for ich in ichs:
             for ctype in scope.CURSOR_TYPES:
                 cpos = scope.get_cursor_position(ich, ctype)
