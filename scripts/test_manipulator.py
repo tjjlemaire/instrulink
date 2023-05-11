@@ -2,14 +2,14 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:30:00
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-10 11:21:29
+# @Last Modified time: 2023-05-11 08:00:30
 
-from lab_instruments.sutter_mp285a import SutterMP285A, SutterError
+from lab_instruments import grab_manipulator, SutterError
 from lab_instruments.logger import logger
 
 try:
     # Grab micro-manipulator
-    mp = SutterMP285A()
+    mp = grab_manipulator()
 
     # Display position, velocity and resolution
     mp.get_position(verbose=True)

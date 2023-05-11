@@ -2,23 +2,20 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-10 11:07:56
+# @Last Modified time: 2023-05-11 07:54:10
 
 ''' Initiate test sequence with Rigol waveform generator. '''
 
 import logging
 import time
 
-from lab_instruments.visa_instrument import VisaError
-from lab_instruments.rigol_dg1022z import RigolDG1022Z
-from lab_instruments.logger import logger
-
+from lab_instruments import logger, grab_generator, VisaError
 
 logger.setLevel(logging.DEBUG)
 
 try:
     # Grab function generator
-    instrument = RigolDG1022Z()
+    wg = grab_generator()
 
     # # Run test output sequence
     # instrument.test_output()
@@ -29,17 +26,17 @@ try:
     PRF= 100. # Hz
     DC = 50.  # %
     tstim = 0.2  # s
-    instrument.set_gated_sine_burst(
+    wg.set_gated_sine_burst(
         Fdrive, Vpp, tstim, PRF, DC, mod_trig_source='MAN')
 
     # Wait for some time
     time.sleep(3)
 
     # Trigger
-    instrument.trigger_channel(1)
+    wg.trigger_channel(1)
     # Options:
-    # - Launch single trigger: instrument.trigger_channel(1)
-    # - Start trigger loop: instrument.start_trigger_loop(1)
+    # - Launch single trigger: wg.trigger_channel(1)
+    # - Start trigger loop: wg.start_trigger_loop(1)
 
 except VisaError as e:
     logger.error(e)

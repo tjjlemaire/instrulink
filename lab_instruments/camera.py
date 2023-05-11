@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-08-08 10:11:50
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-29 12:16:13
+# @Last Modified time: 2023-05-11 09:00:49
 
 import os
 import time
@@ -72,8 +72,8 @@ def log_build_info():
         f'PyCapture2 library version: {lib_ver[0]}.{lib_ver[1]}.{lib_ver[2]}.{lib_ver[3]}')
 
 
-def grab_camera():
-    ''' Get Camera object for 1st detected camera '''
+def grab_flir_camera():
+    ''' Grab the first detected camera '''
     # Get camera BUS Manager
     bus = PyCapture2.BusManager()
     # Extract number of connected cameras

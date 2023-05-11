@@ -2,35 +2,26 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-10 19:16:53
+# @Last Modified time: 2023-05-10 23:18:34
 
 import argparse
 import matplotlib.pyplot as plt
 
-from lab_instruments.logger import logger
-from lab_instruments.visa_instrument import VisaError
-from lab_instruments.bk_2555 import BK2555
-from lab_instruments.rigol_ds1054z import RigolDS1054Z
-from lab_instruments.si_utils import si_format
+from lab_instruments import logger, si_format, grab_oscilloscope, VisaError
 
 # Parse oscilloscope class from command line
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    '-b', '--brand', type=str, default='bk', choices=('bk', 'rigol'), help='Oscilloscope type')
+    '-t', '--type', type=str, default='bk', choices=('bk', 'rigol'), help='Oscilloscope type')
 args = parser.parse_args()
-scope_class = {
-    'bk': BK2555,
-    'rigol': RigolDS1054Z
-}[args.brand]
 
 try:
     # Grab oscilloscope object
-    logger.info(f'Initializing {scope_class.__name__} object...')
-    scope = scope_class()
+    scope = grab_oscilloscope(type=args.type)
 
     # Display settings
     print('DISPLAY SETTINGS')
-    if isinstance(scope, BK2555):
+    if args.type == 'bk':
         scope.display_menu()
         scope.hide_menu()
     scope.show_trace(1)
@@ -56,7 +47,7 @@ try:
     print('TRIGGER SETTINGS')
     scope.set_trigger_mode('norm')
     logger.info(f'trigger mode = {scope.get_trigger_mode()}')
-    if isinstance(scope, BK2555):
+    if args.type == 'bk':
         scope.set_trigger_coupling_mode(1, 'DC')
         logger.info(f'channel 1 trigger coupling mode = {scope.get_trigger_coupling_mode(1)}')
     else:
@@ -65,13 +56,13 @@ try:
     logger.info(f'trigger type = {scope.get_trigger_type()}')
     scope.set_trigger_source(1)
     logger.info(f'trigger source channel = {scope.get_trigger_source()}')
-    if isinstance(scope, BK2555):
+    if args.type == 'bk':
         scope.set_trigger_slope(1, 'POS')
         logger.info(f'channel 1 trigger slope = {scope.get_trigger_slope(1)}')
     else:
         scope.set_trigger_slope('POS')
         logger.info(f'trigger slope = {scope.get_trigger_slope()}')
-    if isinstance(scope, BK2555):
+    if args.type == 'bk':
         scope.set_trigger_level(1, 0.4)
         logger.info(f'channel 1 trigger level = {scope.get_trigger_level(1)} V')
     else:
@@ -83,7 +74,7 @@ try:
     # Cursor settings
     print('CURSORS SETTINGS')
     ich = 1
-    if isinstance(scope, BK2555):
+    if args.type == 'bk':
         for ctype in scope.CURSOR_TYPES:
             cpos = scope.get_cursor_position(ich, ctype)
             logger.info(f'channel {ich} {ctype} cursor position: {cpos} divs')
@@ -98,7 +89,7 @@ try:
     scope.disable_bandwith_filter(ich)
     sfilt = 'enabled' if scope.is_bandwith_filter_enabled(ich) else 'disabled'
     logger.info(f'bandwidth filter for channel {ich} is {sfilt}')
-    if isinstance(scope, BK2555):
+    if args.type == 'bk':
         fc = 10 / scope.get_temporal_scale()  # cutoff frequency (Hz)
         scope.set_filter(ich, 'LP', fhigh=fc)
         scope.enable_filter(ich)
@@ -107,7 +98,7 @@ try:
 
     # Acquisition settings
     print('ACQUISITION SETTINGS')
-    if isinstance(scope, BK2555):
+    if args.type == 'bk':
         logger.info(f'acquisition status: {scope.get_acquisition_status()}')
         logger.info(f'# samples in last acquisition = {scope.get_nsamples(1)}')
         logger.info(f'interpolation type = {scope.get_interpolation_type()}')
@@ -123,7 +114,7 @@ try:
 
     # Waveform settings
     print('WAVEFORM SETTINGS')
-    if isinstance(scope, BK2555):
+    if args.type == 'bk':
         for k, v in scope.units_per_param.items():
             try:
                 val = scope.get_parameter_value(1, k)
