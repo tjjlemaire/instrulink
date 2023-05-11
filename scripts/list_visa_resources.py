@@ -2,12 +2,10 @@
 # @Author: Theo Lemaire
 # @Date:   2022-08-15 10:21:10
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 10:21:18
+# @Last Modified time: 2023-05-11 15:35:18
 
-import pyvisa
+''' List all available VISA resources '''
 
-# Detect instrument and store its handle
-rm = pyvisa.ResourceManager()
-resources = rm.list_resources()
-res_str = '\n'.join([f'  - {r}' for r in resources])
-print(f'VISA resources:\n{res_str}')
+from lab_instruments import list_visa_resources
+
+list_visa_resources()

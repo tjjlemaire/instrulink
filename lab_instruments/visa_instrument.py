@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 12:59:21
+# @Last Modified time: 2023-05-11 15:33:31
 
 import abc
 import pyvisa
@@ -19,6 +19,14 @@ from .si_utils import si_format, SI_powers
 class VisaError(Exception):
     ''' Custom exception class for VISA instrument '''
     pass
+
+
+def list_visa_resources():
+    ''' List all available VISA resources. '''
+    rm = pyvisa.ResourceManager()
+    resources = rm.list_resources()
+    res_str = '\n'.join([f'  - {r}' for r in resources])
+    print(f'VISA resources:\n{res_str}')
 
 
 class VisaInstrument(metaclass=abc.ABCMeta):
