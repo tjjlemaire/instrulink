@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-10 18:56:47
+# @Last Modified time: 2023-05-11 12:38:46
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -94,6 +94,12 @@ class Oscilloscope(VisaInstrument):
         ''' Available interpolation types '''
         raise NotImplementedError
     
+    @property
+    @abc.abstractmethod
+    def UNITS_PER_PARAM(self):
+        ''' Units per parameter dictionary '''
+        raise NotImplementedError
+    
     # --------------------- MISCELLANEOUS ---------------------
 
     @abc.abstractmethod
@@ -102,6 +108,16 @@ class Oscilloscope(VisaInstrument):
         raise NotImplementedError
     
     # --------------------- DISPLAY ---------------------
+
+    @abc.abstractmethod
+    def display_menu(self):
+        ''' Display menu '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def hide_menu(self):
+        ''' Hide menu '''
+        raise NotImplementedError
 
     @abc.abstractmethod
     def show_trace(self, ich):
@@ -163,8 +179,7 @@ class Oscilloscope(VisaInstrument):
     
     def get_temporal_range(self):
         ''' Get temporal display range at current temporal scale range (in s) '''
-        halfrange = self.get_temporal_scale() * self.NHDIVS / 2
-        return (-halfrange, halfrange)
+        return self.get_temporal_scale() * self.NHDIVS
     
     @abc.abstractmethod
     def set_vertical_scale(self, ich, value):
@@ -202,6 +217,15 @@ class Oscilloscope(VisaInstrument):
     def is_bandwith_filter_enabled(self, ich):
         ''' Query bandwidth-limiting low-pass filter for specific channel '''
         raise NotImplementedError
+    
+    def set_filter(self, *args, **kwargs):
+        logger.warning('no filter capabilities')
+    
+    def enable_filter(self, ich):
+        logger.warning('no filter capabilities')
+
+    def is_filter_enabled(self, ich):
+        return False
     
     # --------------------- PROBES & COUPLING ---------------------
 
@@ -278,12 +302,12 @@ class Oscilloscope(VisaInstrument):
         raise NotImplementedError
 
     def check_trigger_delay(self, value):
-        ''' Check that trigger delay value falls within current temporal range '''    
-        tbounds = self.get_temporal_range()
-        if not is_within(value, tbounds):
+        ''' Check that trigger delay value falls within current temporal range '''
+        thalfrange = self.get_temporal_range() / 2
+        if np.abs(value) > thalfrange:
             logger.warning(
-                f'target temporal delay ({si_format(value, 2)}s) outside of current display temporal bounds (+/- {si_format(tbounds[1], 2)}s) -> restricting')
-            value = np.sign(value) * np.abs(tbounds[0])
+                f'target temporal delay ({si_format(value, 2)}s) outside of current display temporal bounds (+/- {si_format(thalfrange, 2)}s) -> restricting')
+            value = np.sign(value) * thalfrange
         return value
     
     @abc.abstractmethod
@@ -295,6 +319,11 @@ class Oscilloscope(VisaInstrument):
     def set_trigger_delay(self, value):
         ''' Set trigger delay (in s) '''
         raise NotImplementedError
+    
+    def set_relative_trigger_delay(self, value):
+        ''' Set trigger delay as a fraction of the current temporal scale '''
+        tdiv = self.get_temporal_scale()
+        self.set_trigger_delay(value * tdiv) 
 
     @abc.abstractmethod
     def force_trigger(self):
@@ -364,6 +393,13 @@ class Oscilloscope(VisaInstrument):
         ''' Set oscilloscope acquisition type '''
         raise NotImplementedError
     
+    # --------------------- PARAMETERS ---------------------
+
+    @abc.abstractmethod
+    def get_parameter_value(self, ich, pkey):
+        ''' Query the value of a parameter on a particular channel '''
+        raise NotImplementedError
+    
     # --------------------- WAVEFORMS ---------------------
 
     @abc.abstractmethod
@@ -380,23 +416,26 @@ class Oscilloscope(VisaInstrument):
     
     # --------------------- PLOTTING ---------------------
     
-    def plot_waveform_data(self, *args, **kwargs):
+    def plot_waveform_data(self, *args, n=1, **kwargs):
         '''
         Acquire and plot waveform data
         
-        :param ich: channel index
+        :param n: number of acquisitions to plot
         :return: figure handle
         '''
-        t, y = self.get_waveform_data(*args, **kwargs)
         fig, ax = plt.subplots()
         for k in ['right', 'top']:
             ax.spines[k].set_visible(False)
         ax.set_xlabel('time (ms)')
         ax.set_ylabel('voltage (V)')
         ax.set_title('waveform data')
-        ax.plot(t * 1e3, y, label=f'ch{1}')
+        for i in range(n):
+            t, y = self.get_waveform_data(*args, **kwargs)
+            ax.plot(t * 1e3, y, label=f'acq{i + 1}')
         ax.axvline(0, c='k', ls='--')
         ax.axhline(0, c='k', ls='--')
+        if n > 1:
+            ax.legend()
         return fig
     
     def plot_screen_capture(self):
@@ -410,3 +449,30 @@ class Oscilloscope(VisaInstrument):
         ax.imshow(img)
         ax.axis('off')
         return fig
+    
+    # --------------------- MULTI-CHANNEL SETTING ---------------------
+
+    def set_multichannel_vscale(self, vscale, ich_signal, ich_trigger=None, trig_detect=None):
+        ''' 
+        Set scope vertical scale and trigger settings 
+        
+        :param vdiv: vertical scale of signal channel (V/div)
+        :param ich_signal: signal channel index
+        :param ich_trigger: trigger channel index (optional)
+        :param trig_detect: trigger detection amplitude (defaults to TTL_PAMP / 2)
+        '''
+        # Set trigger detection amplitude if not specified
+        if trig_detect is None:
+           trig_detect = TTL_PAMP / 2
+        
+        # Set vertical scale on signal channel
+        self.set_vertical_scale(ich_signal, vscale)
+
+        # Set vertical scale & trigger level on trigger channel, if any
+        if ich_trigger is not None:
+            self.set_vertical_scale(ich_trigger, trig_detect)
+            self.set_trigger_level(ich_trigger, trig_detect)
+
+        # Set trigger source to appropriate channel
+        self.set_trigger_source(ich_trigger if ich_trigger is not None else ich_signal)
+        

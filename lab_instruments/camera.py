@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-08-08 10:11:50
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 09:00:49
+# @Last Modified time: 2023-05-11 09:28:01
 
 import os
 import time
@@ -14,14 +14,13 @@ import PyCapture2
 from .logger import logger
 from .constants import *
 
+
 # Constants
 SOFTWARE_TRIGGER = 0x62C
 FIRE_VAL = 0x80000000
 TRIGGER_INQ = 0x530
 CAMERA_POWER = 0x610
 POWER_VAL = 0x80000000
-
-
 CRITICAL_BITRATE = 100  # Critical bitrate (in kb/s) for H264 writing above which some frames are lost
 DEFAULT_BITRATE = 80  # Default bitrate (in kb/s) for H264 writing
 DEFAULT_JPEG_COMPRESSION = 75  # Default JPEG compression quality (0-100) for MPEG encoding
@@ -72,7 +71,7 @@ def log_build_info():
         f'PyCapture2 library version: {lib_ver[0]}.{lib_ver[1]}.{lib_ver[2]}.{lib_ver[3]}')
 
 
-def grab_flir_camera():
+def grab_camera():
     ''' Grab the first detected camera '''
     # Get camera BUS Manager
     bus = PyCapture2.BusManager()

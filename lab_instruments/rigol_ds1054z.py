@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-10 19:17:39
+# @Last Modified time: 2023-05-11 12:25:37
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -57,6 +57,9 @@ class RigolDS1054Z(Oscilloscope):
     WAVEFORM_FORMATS = ('WORD', 'BYTE', 'ASC')  # waveform reading formats
     MAX_BYTE_LEN = 250000  # max number of bytes to read from internal memory at once
 
+    # Units parameters
+    UNITS_PER_PARAM = {}
+
     # --------------------- MISCELLANEOUS ---------------------
 
     def wait(self, t=None):
@@ -99,6 +102,12 @@ class RigolDS1054Z(Oscilloscope):
         return ieee_bytes[n_header_bytes:n_header_bytes + n_data_bytes]
     
     # --------------------- DISPLAY ---------------------
+
+    def display_menu(self):
+        pass
+
+    def hide_menu(self):
+        pass
     
     def show_trace(self, ich):
         ''' Enable trace display on specific channel '''
@@ -292,12 +301,16 @@ class RigolDS1054Z(Oscilloscope):
                 f'{value} not a valid trigger mode (candidates are {self.TRIGGER_MODES})')
         self.write(f'TRIG:SWE {value}')
     
-    def get_trigger_coupling_mode(self):
+    def get_trigger_coupling_mode(self, ich):
         ''' Get the trigger coupling mode. '''
+        if self.get_trigger_source() != ich:
+            self.set_trigger_source(ich)
         return self.query('TRIG:COUP?')
     
-    def set_trigger_coupling_mode(self, value):
+    def set_trigger_coupling_mode(self, ich, value):
         ''' Set the trigger coupling mode. '''
+        if self.get_trigger_source() != ich:
+            self.set_trigger_source(ich)
         if value not in self.TRIGGER_COUPLING_MODES:
             raise VisaError(
                 f'{value} not a valid trigger coupling mode (candidates are {self.TRIGGER_COUPLING_MODES})')
@@ -360,13 +373,17 @@ class RigolDS1054Z(Oscilloscope):
         ttype = self.get_trigger_type()
         self.write(f'TRIG:{ttype}:SOUR CHAN{ich}')
     
-    def get_trigger_slope(self):
+    def get_trigger_slope(self, ich):
         ''' Get trigger slope for current trigger type '''
+        if self.get_trigger_source() != ich:
+            self.set_trigger_source(ich)
         ttype = self.get_trigger_type()
         return self.query(f'TRIG:{ttype}:SLOP?')
     
-    def set_trigger_slope(self, value):
+    def set_trigger_slope(self, ich, value):
         ''' Set trigger slope for current trigger type '''
+        if self.get_trigger_source() != ich:
+            self.set_trigger_source(ich)
         value = value.upper()
         if value not in self.TRIGGER_SLOPES:
             raise VisaError(
@@ -375,14 +392,18 @@ class RigolDS1054Z(Oscilloscope):
         logger.info(f'setting {ttype} trigger slope to {value}')
         self.write(f'TRIG:{ttype}:SLOP {value}')
     
-    def get_trigger_level(self):
+    def get_trigger_level(self, ich):
         ''' Get trigger level (in V) '''
+        if self.get_trigger_source() != ich:
+            self.set_trigger_source(ich)
         ttype = self.get_trigger_type()
         out = self.query(f'TRIG:{ttype}:LEV?')
         return float(out)
 
-    def set_trigger_level(self, value):
+    def set_trigger_level(self, ich, value):
         ''' Set trigger level (in V) '''
+        if self.get_trigger_source() != ich:
+            self.set_trigger_source(ich)
         ttype = self.get_trigger_type()
         self.write(f'TRIG:{ttype}:LEV {value}')
     
@@ -465,6 +486,12 @@ class RigolDS1054Z(Oscilloscope):
     def disable_peak_detector(self):
         ''' Turn off peak detector '''
         self.set_acquisition_type('NORM')
+    
+    # --------------------- PARAMETERS ---------------------
+    
+    def get_parameter_value(self, ich, pkey):
+        ''' Query the value of a parameter on a particular channel '''
+        raise NotImplementedError    
     
     # --------------------- WAVEFORMS ---------------------
 

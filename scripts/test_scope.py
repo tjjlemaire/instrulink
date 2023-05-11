@@ -2,18 +2,33 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-10 23:18:34
+# @Last Modified time: 2023-05-11 12:43:18
 
 import argparse
 import matplotlib.pyplot as plt
 
 from lab_instruments import logger, si_format, grab_oscilloscope, VisaError
+from lab_instruments.constants import TTL_PAMP
 
-# Parse oscilloscope class from command line
+# Default acquisition parameters
+tscale = 1e-3  # temporal scale (s/div)
+vscale = 0.2  # vertical scale (V/div)
+voffset = 0.  # vertical offset (V)
+tlevel = vscale / 2  # trigger level (V)
+tdelay = 5e-3 # 3e-3  # trigger delay (s)
+
+# Parse command line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument(
     '-t', '--type', type=str, default='bk', choices=('bk', 'rigol'), help='Oscilloscope type')
+parser.add_argument(
+    '--isignal', type=int, default=1, choices=(1, 2, 3, 4), help='Signal channel index')
+parser.add_argument(
+    '--itrigger', type=int, default=1, choices=(1, 2, 3, 4), help='Trigger channel index')
 args = parser.parse_args()
+ich_sig = args.isignal  # signal channel index
+ich_trig = args.itrigger  # trigger channel index
+ichs = set([ich_sig, ich_trig]) # set of channel indices
 
 try:
     # Grab oscilloscope object
@@ -21,89 +36,76 @@ try:
 
     # Display settings
     print('DISPLAY SETTINGS')
-    if args.type == 'bk':
-        scope.display_menu()
-        scope.hide_menu()
-    scope.show_trace(1)
-    logger.info(f'trace on channel 1: {scope.is_trace(1)}')
+    scope.display_menu()
+    for ich in ichs:
+        scope.show_trace(ich)
+        logger.info(f'trace on channel {ich}: {scope.is_trace(ich)}')
 
     # Probes & coupling settings
     print('PROBE & COUPLING SETTINGS')
-    scope.set_probe_attenuation(1, 1)
-    logger.info(f'channel 1 attenuation factor = {scope.get_probe_attenuation(1)}')
-    logger.info(f'channel 1 coupling mode: {scope.get_coupling_mode(1)}')
+    for ich in ichs:
+        scope.set_probe_attenuation(ich, 1)
+        logger.info(f'channel {ich} attenuation factor = {scope.get_probe_attenuation(ich)}')
+        logger.info(f'channel {ich} coupling mode: {scope.get_coupling_mode(ich)}')
     
     # Temporal and vertical scales / offsets
     print('SCALE & OFFSET SETTINGS')
     # scope.auto_setup()
-    scope.set_temporal_scale(1e-3)
+    scope.set_temporal_scale(tscale)
     logger.info(f'temporal scale = {scope.get_temporal_scale()} s/div')
-    scope.set_vertical_scale(1, 2)
-    logger.info(f'channel 1vertical scale = {scope.get_vertical_scale(1)} V/div')
-    scope.set_vertical_offset(1, .0)
-    logger.info(f'channel 1 vertical offset = {scope.get_vertical_offset(1)} V')
+    for ich in ichs:
+        scope.set_vertical_offset(ich, voffset)
+        logger.info(f'channel {ich} vertical offset = {scope.get_vertical_offset(ich)} V')
+    scope.set_vertical_scale(ich_sig, vscale)
+    logger.info(f'channel {ich_sig} vertical scale = {scope.get_vertical_scale(ich_sig)} V/div')
+    if ich_sig != ich_trig:
+        scope.set_vertical_scale(ich_trig, TTL_PAMP / 2)
+        logger.info(f'channel {ich_trig} vertical scale = {scope.get_vertical_scale(ich_trig)} V/div')
 
     # Trigger settings
     print('TRIGGER SETTINGS')
     scope.set_trigger_mode('norm')
     logger.info(f'trigger mode = {scope.get_trigger_mode()}')
-    if args.type == 'bk':
-        scope.set_trigger_coupling_mode(1, 'DC')
-        logger.info(f'channel 1 trigger coupling mode = {scope.get_trigger_coupling_mode(1)}')
-    else:
-        scope.set_trigger_coupling_mode('DC')
-        logger.info(f'trigger coupling mode = {scope.get_trigger_coupling_mode()}')
+    scope.set_trigger_coupling_mode(ich_trig, 'DC')
+    logger.info(f'channel {ich_trig} trigger coupling mode = {scope.get_trigger_coupling_mode(ich_trig)}')
     logger.info(f'trigger type = {scope.get_trigger_type()}')
-    scope.set_trigger_source(1)
+    scope.set_trigger_source(ich_trig)
     logger.info(f'trigger source channel = {scope.get_trigger_source()}')
-    if args.type == 'bk':
-        scope.set_trigger_slope(1, 'POS')
-        logger.info(f'channel 1 trigger slope = {scope.get_trigger_slope(1)}')
+    scope.set_trigger_slope(ich_trig, 'POS')
+    logger.info(f'channel {ich_trig} trigger slope = {scope.get_trigger_slope(ich_trig)}')
+    if ich_sig == ich_trig:
+        scope.set_trigger_level(ich_trig, tlevel)
     else:
-        scope.set_trigger_slope('POS')
-        logger.info(f'trigger slope = {scope.get_trigger_slope()}')
-    if args.type == 'bk':
-        scope.set_trigger_level(1, 0.4)
-        logger.info(f'channel 1 trigger level = {scope.get_trigger_level(1)} V')
-    else:
-        scope.set_trigger_level(0.4)
-        logger.info(f'trigger level = {scope.get_trigger_level()} V')
-    scope.set_trigger_delay(-5e-3)
+        scope.set_trigger_level(ich_trig, TTL_PAMP / 2)
+    logger.info(f'channel {ich_trig} trigger level = {scope.get_trigger_level(ich_trig)} V')
+    scope.set_trigger_delay(scope.get_temporal_range() / 3)
     logger.info(f'trigger delay = {si_format(scope.get_trigger_delay())}s')
 
     # Cursor settings
     print('CURSORS SETTINGS')
-    ich = 1
     if args.type == 'bk':
-        for ctype in scope.CURSOR_TYPES:
-            cpos = scope.get_cursor_position(ich, ctype)
-            logger.info(f'channel {ich} {ctype} cursor position: {cpos} divs')
-        for ctype in scope.CVALUES_TYPES:
-            cval = scope.get_cursor_value(ich, ctype)
-            logger.info(f'channel {ich} {ctype} values: {cval}')
+        for ich in ichs:
+            for ctype in scope.CURSOR_TYPES:
+                cpos = scope.get_cursor_position(ich, ctype)
+                logger.info(f'channel {ich} {ctype} cursor position: {cpos} divs')
+            for ctype in scope.CVALUES_TYPES:
+                cval = scope.get_cursor_value(ich, ctype)
+                logger.info(f'channel {ich} {ctype} values: {cval}')
 
     # Filter settings
     print('FILTER SETTINGS')
-    ich = 1
-    scope.enable_bandwith_filter(ich)
-    scope.disable_bandwith_filter(ich)
-    sfilt = 'enabled' if scope.is_bandwith_filter_enabled(ich) else 'disabled'
-    logger.info(f'bandwidth filter for channel {ich} is {sfilt}')
-    if args.type == 'bk':
-        fc = 10 / scope.get_temporal_scale()  # cutoff frequency (Hz)
-        scope.set_filter(ich, 'LP', fhigh=fc)
-        scope.enable_filter(ich)
-        sfilt = 'enabled' if scope.is_filter_enabled(ich) else 'disabled'
-        logger.info(f'channel {ich} filter is {sfilt}')
+    scope.enable_bandwith_filter(ich_sig)
+    scope.disable_bandwith_filter(ich_sig)
+    sfilt = 'enabled' if scope.is_bandwith_filter_enabled(ich_sig) else 'disabled'
+    logger.info(f'bandwidth filter for channel {ich_sig} is {sfilt}')
+    fc = 10 / scope.get_temporal_scale()  # cutoff frequency (Hz)
+    scope.set_filter(ich_sig, 'LP', fhigh=fc)
+    scope.enable_filter(ich_sig)
+    sfilt = 'enabled' if scope.is_filter_enabled(ich_sig) else 'disabled'
+    logger.info(f'channel {ich_sig} filter is {sfilt}')
 
     # Acquisition settings
     print('ACQUISITION SETTINGS')
-    if args.type == 'bk':
-        logger.info(f'acquisition status: {scope.get_acquisition_status()}')
-        logger.info(f'# samples in last acquisition = {scope.get_nsamples(1)}')
-        logger.info(f'interpolation type = {scope.get_interpolation_type()}')
-    else:
-        logger.info(f'# samples in internal memory = {scope.get_nsamples()}')
     logger.info(f'sample rate = {si_format(scope.get_sample_rate())}Hz')
     logger.info(f'acquisition type: {scope.get_acquisition_type()}')
     if scope.get_acquisition_type().startswith('AVER'):
@@ -113,21 +115,20 @@ try:
     logger.info(f'trigger type = {scope.get_trigger_type()}')
 
     # Waveform settings
-    print('WAVEFORM SETTINGS')
-    if args.type == 'bk':
-        for k, v in scope.units_per_param.items():
-            try:
-                val = scope.get_parameter_value(1, k)
-                logger.info(f'{k} = {val} {v}')
-            except VisaError as e:
-                logger.error(e)
-        scope.set_waveform_settings(npoints=10000)
-        logger.info(scope.waveform_settings)
-        logger.info(scope.comunication_format)
+    print('WAVEFORM PARAMETERS')
+    for k, v in scope.UNITS_PER_PARAM.items():
+        try:
+            val = scope.get_parameter_value(ich_sig, k)
+            logger.info(f'{k} = {val} {v}')
+        except VisaError as e:
+            logger.error(e)
+    
+    # Hide menu before acquisition
+    scope.hide_menu()
 
     # Waveform data
     print('WAVEFORM DATA')
-    fig = scope.plot_waveform_data(1)
+    fig = scope.plot_waveform_data(ich_sig, n=5)
 
     # Screen data
     print('SCREEN CAPTURE')

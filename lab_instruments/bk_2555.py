@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-10 19:05:27
+# @Last Modified time: 2023-05-11 12:07:07
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -72,7 +72,7 @@ class BK2555(Oscilloscope):
 
     # Unit parameters
     UNITS = ['S', 'V', '%', 'Hz', 'Sa']  # valid units for I/O communication
-    units_per_param = {
+    UNITS_PER_PARAM = {
         'PKPK': 'V',  # peak-to-peak
         'MAX': 'V',  # maximum
         'MIN': 'V',  # minimum

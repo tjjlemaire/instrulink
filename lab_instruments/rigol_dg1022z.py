@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-10 14:12:27
+# @Last Modified time: 2023-05-11 11:42:27
 
 import time
 
@@ -11,6 +11,7 @@ from lab_instruments.constants import MV_TO_V
 from .waveform_generator import *
 from .logger import logger
 from .si_utils import si_format
+from .constants import TTL_PWIDTH, TTL_PAMP
 
 
 class RigolDG1022Z(WaveformGenerator):
@@ -340,35 +341,67 @@ class RigolDG1022Z(WaveformGenerator):
     def trigger_channel(self, ich):
         ''' Trigger specific channel programmatically. '''
         self.check_channel_index(ich)
-        logger.info(f'triggering channel {ich} programmatically...')
+        logger.info(f'triggering channel {ich} programmatically')
         self.write(f'SOUR{ich}:BURS:TRIG:IMM')
         self.wait()
 
-    def start_trigger_loop(self, ich):
-        ''' Start a trigger loop with a specific channel '''
+    def start_trigger_loop(self, ich, T=None):
+        '''
+        Start a trigger loop with a specific channel
+        
+        :param ich: channel index
+        :param T: trigger loop period (s)
+        '''
+        if T is not None:
+            self.set_burst_internal_period(ich, T)
         self.set_trigger_source(ich, 'INT')
     
-    def set_gating_pulse_train(self, ich, PRF, Vpp, T, tburst, trig_source='EXT'):
+    def set_gating_pulse_train(self, ich, PRF, tburst, Vpp=None, T=None, trig_source='EXT'):
         '''
         Set a gating pulse train on a specific channel
         
         :param ich: channel index
         :param PRF: pulse repetition frequency (Hz)
-        :param Vpp: pulse amplitude (V)
-        :param T: burst repetition period (s)
         :param tburst: burst duration (s)
+        :param Vpp: pulse amplitude in V, defaults to TTL pulse amplitude (5V)
+        :param T: burst repetition period in s, only for internal trigger source (defaults to 2)
         :param trig_source: trigger source (default: external)
         '''
+        # Define default log message
+        s = f'setting channel {ich} to trigger {si_format(tburst, 2)}s long TTL pulse train with {si_format(PRF, 2)}Hz internal PRF'
+
+        # Set default pulse amplitude if not specified
+        if Vpp is None:
+            Vpp = TTL_PAMP / MV_TO_V
+        else:
+            s = f'{s}, {si_format(Vpp, 2)}Vpp'
+
+        # Complete log message based on trigger source
+        if trig_source == 'INT':
+            if T is None:
+                T = 2.  # s
+            s = f'{s}, repeated every {si_format(T, 2)}s'
+        elif trig_source == 'EXT':
+            s = f'{s}, triggered externally'
+        elif trig_source == 'MAN':
+            s = f'{s}, triggered manually/programmatically'
+        else:
+            raise ValueError(f'invalid trigger source: {trig_source}')
+        
+        # Log process
+        logger.info(s)
+        
         # Apply pulse with specific frequency, amplitude and offset
         self.apply_pulse(ich, PRF, Vpp, offset=Vpp / 2.)
         # Set nominal pulse width
-        self.set_pulse_width(ich, self.TTL_PWIDTH)
+        self.set_pulse_width(ich, TTL_PWIDTH)
         # Set pulse idle level to "bottom"
         self.set_burst_idle_level(ich, 'BOTTOM')
         # Set channel trigger source to external (to avoid erroneous outputs upon setting)
         self.set_trigger_source(ich, 'EXT')
-        # Set burst repetition period
-        self.set_burst_internal_period(ich, T)  # s
+        # Set burst repetition period, if any
+        if T is not None:
+            self.set_burst_internal_period(ich, T)  # s
         # Set burst duration
         self.set_burst_duration(ich, tburst)  # s
         # Enable burst mode on channel
@@ -376,8 +409,7 @@ class RigolDG1022Z(WaveformGenerator):
         # Set channel trigger source
         self.set_trigger_source(ich, trig_source)
 
-    def set_gated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, mod_Vpp=None, mod_T=2.,
-                             ich_mod=1, ich_sine=2, mod_trig_source='EXT'):
+    def set_gated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, ich_mod=1, ich_sine=2, **kwargs):
         '''
         Set sine burst on channel 2 gated by channel 1 (used for pulsed US stimulus)
         
@@ -386,26 +418,25 @@ class RigolDG1022Z(WaveformGenerator):
         :param tstim: total stimulus duration (s)
         :param PRF: pulse repetition frequency (Hz)
         :param DC: duty cycle (%)
-        :param mod_Vpp: amplitude of the modulating square pulse (default = 5 Vpp)
-        :param mod_T: repetition period of the modulating square pulse (default = 2s)
         :param ich_mod: index of the modulating signal channel
         :param ich_sine: index of the carrier signal channel
-        :param mod_trig_source: trigger source of the modulating channel (default: external)
         '''
-        if mod_Vpp is None:
-            mod_Vpp = self.TTL_PAMP / MV_TO_V
+        # Check that channels indexes are different
         if ich_mod == ich_sine:
             raise VisaError('gating and signal channels cannot be identical')
+        
         # Disable all outputs
         self.disable_output()
+        
         # Set gating channel parameters
-        self.set_gating_pulse_train(
-            ich_mod, PRF, mod_Vpp, mod_T, tstim, trig_source=mod_trig_source)
+        self.set_gating_pulse_train(ich_mod, PRF, tstim, **kwargs)
 
         # Set sinewave channel parameters
+        tburst = DC / (100 * PRF)  # s
+        logger.info(f'setting channel {ich_sine} to output {si_format(tburst, 2)}s long, ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave triggered externally by channel {ich_mod}')
         self.apply_sine(ich_sine, Fdrive, Vpp)
         self.set_trigger_source(ich_sine, 'EXT')
-        self.set_burst_duration(ich_sine, DC / (100 * PRF))  # s
+        self.set_burst_duration(ich_sine, tburst)  # s
         self.enable_burst(ich_sine)
         self.set_trigger_source(ich_sine, 'EXT')
 
@@ -424,30 +455,35 @@ class RigolDG1022Z(WaveformGenerator):
         :param BRF: Burst repetition frequency (Hz)
         :param ich_trig (optional): triggering channel index
         '''
-        # Log process
-        params_str = ', '.join([
-            f'{si_format(Fdrive, 3)}Hz',
-            f'{si_format(Vpp, 3)}Vpp', 
-            f'{ncycles} cycles'
-        ])
-        s = f'setting ({params_str}) sine wave looping at {BRF:.1f} Hz on channel {ich}'
-        if ich_trig is not None:
-            s = f'{s}, triggered by channel {ich_trig}'
-        logger.info(s)
+        # If trigger channel is different than signal channel, use `set_gated_sine_burst` method
+        # to set up loop
         if ich_trig is not None:
             tburst = ncycles / Fdrive  # nominal burst duration (s)
             self.set_gated_sine_burst(
-                Fdrive, Vpp, tburst, 1. / tburst, BRF, mod_T=1. / BRF,
+                Fdrive, Vpp, tburst, 1. / tburst, BRF, T=1. / BRF,
                 ich_mod=ich_trig, ich_sine=ich)
-            self.start_trigger_loop(ich_trig)
+            self.start_trigger_loop(ich_trig, T=1. / BRF)
             self.enable_output()
+        
+        # Otherwise, set up loop directly on signal channel
         else:
+            # Log process
+            params_str = ', '.join([
+                f'{si_format(Fdrive, 3)}Hz',
+                f'{si_format(Vpp, 3)}Vpp', 
+                f'{ncycles} cycles'
+            ])
+            logger.info(f'setting ({params_str}) sine wave looping at {BRF:.1f} Hz on channel {ich}')
+            
             # Disable all outputs
             self.disable_output()
+            
             # Set sine wave channel parameters
             self.apply_sine(ich, Fdrive, Vpp)
             self.set_burst_internal_period(ich, 1 / BRF)  # s
             self.set_burst_ncycles(ich, ncycles)
             self.enable_burst(ich)
+
+            # Start trigger loop and enable output
             self.start_trigger_loop(ich)
             self.enable_output_channel(ich)
