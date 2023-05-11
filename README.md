@@ -7,7 +7,7 @@ Python code to interface diverse laboratory instruments:
 - infrared cameras: FLIR cameras (`Camera`)
 - NI DAQmx for pulse triggers
 
-### Requirements
+## Requirements
 
 - FlyCapture SDK (to use the FLIR camera interface class)
 - Anaconda
