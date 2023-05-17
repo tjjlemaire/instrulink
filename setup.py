@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2017-06-13 09:40:02
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-17 10:53:39
+# @Last Modified time: 2023-05-17 11:48:50
 
 import os
 from setuptools import setup
@@ -26,7 +26,9 @@ def getFiles(path):
 setup(
     name='labinstruments',
     version='1.0',
-    description=readme(),
+    description='Python package to interface diverse laboratory instruments',
+    long_description_content_type='text/markdown',
+    long_description=readme(),
     url='https://github.com/tjjlemaire/labinstruments',
     classifiers=[
         'Development Status :: 4 - Beta',

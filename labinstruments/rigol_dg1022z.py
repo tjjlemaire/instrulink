@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-17 10:54:38
+# @Last Modified time: 2023-05-17 11:34:59
 
 import time
 
@@ -423,8 +423,8 @@ class RigolDG1022Z(WaveformGenerator):
         if ich_mod == ich_sine:
             raise VisaError('gating and signal channels cannot be identical')
         
-        # Disable all outputs
-        self.disable_output()
+        # # Disable all outputs
+        # self.disable_output()
         
         # Set gating channel parameters
         self.set_gating_pulse_train(ich_mod, PRF, tstim, **kwargs)
