@@ -15,8 +15,15 @@ This python package provides built-in classes to interface diverse laboratory in
 
 ## Installation
 
-- Clone this repository: `git clone https://github.com/tjjlemaire/instrulink.git`
-- Move to that directory (`cd instrulink`) and install it as a python package: `pip install -e .`
+`pip install instrulink`
+
+If you wish to amend the package code, you can also clone this repo and install it locally as an editable package: 
+
+```
+git clone https://github.com/tjjlemaire/instrulink.git
+cd instrulink
+pip install -e .
+```
 
 ## Usage
 
