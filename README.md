@@ -1,15 +1,15 @@
 # labinstruments
 
 Python package to interface diverse laboratory instruments, including:
-- **waveform generators**: Rigol DG 1022Z (`RigolDG1022Z`)
-- **oscilloscopes**: B&K Precision 2555 (`BK2555`), Rigol DS 1054Z (`RigolDS1054Z`)
-- **micro-manipulators**: Sutter Instruments MP-285A (`SutterMP285A`)
+- **waveform generators**: [Rigol DG 1022Z](https://www.rigolna.com/products/waveform-generators/dg1000z/) (`RigolDG1022Z`)
+- **oscilloscopes**: [B&K Precision 2555](https://www.bkprecision.com/products/oscilloscopes/2555) (`BK2555`), [Rigol DS 1054Z](https://www.rigolna.com/products/digital-oscilloscopes/1000z/) (`RigolDS1054Z`)
+- **micro-manipulators**: [Sutter Instruments MP-285A](https://www.sutter.com/MICROMANIPULATION/mp285_frame.html) (`SutterMP285A`)
 - **infrared cameras**: FLIR cameras (`Camera`)
-- **acquisition systems**: NI DAQmx for pulse triggers
+- **acquisition systems**: [NI DAQmx](https://www.ni.com/docs/en-US/bundle/ni-daqmx/page/daqhelp/nidaqoverview.html) for pulse triggers
 
 ## Requirements
 
-- FlyCapture SDK (to use the FLIR camera interface class)
+- [FlyCapture SDK](https://www.flir.com/products/flycapture-sdk/) (to use the FLIR camera interface class)
 - Anaconda
 - Python 3.6 (for compliance with FlyCapture SDK)
 
@@ -20,4 +20,4 @@ Python package to interface diverse laboratory instruments, including:
 
 ## Usage
 
-See example scripts are located in the `/scripts` subfolder.
+Example scripts are located in the `/scripts` subfolder.
