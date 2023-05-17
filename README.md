@@ -1,11 +1,11 @@
 # lab_instruments
 
-Python code to interface diverse laboratory instruments:
-- waveform generators: Rigol DG 1022Z (`RigolDG1022Z`)
-- oscilloscopes: B&K Precision 2555 (`BK2555`), Rigol DS 1054Z (`RigolDS1054Z`)
-- micro-manipulators: Sutter Instruments MP-285A (`SutterMP285A`)
-- infrared cameras: FLIR cameras (`Camera`)
-- NI DAQmx for pulse triggers
+Python package to interface diverse laboratory instruments, including:
+- **waveform generators**: Rigol DG 1022Z (`RigolDG1022Z`)
+- **oscilloscopes**: B&K Precision 2555 (`BK2555`), Rigol DS 1054Z (`RigolDS1054Z`)
+- **micro-manipulators**: Sutter Instruments MP-285A (`SutterMP285A`)
+- **infrared cameras**: FLIR cameras (`Camera`)
+- **acquisition systems**: NI DAQmx for pulse triggers
 
 ## Requirements
 
@@ -20,4 +20,4 @@ Python code to interface diverse laboratory instruments:
 
 ## Usage
 
-The package provides high-level functions to access instruments and send/receive commands. Example scripts are located in the `/scripts` subfolder.
+See example scripts are located in the `/scripts` subfolder.
