@@ -10,7 +10,7 @@ import logging
 import time
 import argparse
 
-from labinstruments import logger, grab_generator, VisaError
+from instrulink import logger, grab_generator, VisaError
 
 logger.setLevel(logging.INFO)
 

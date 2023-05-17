@@ -24,12 +24,12 @@ def getFiles(path):
     return [f'{path}/{x}' for x in os.listdir(path)]
 
 setup(
-    name='labinstruments',
+    name='instrulink',
     version='1.0',
     description='Python package to interface diverse laboratory instruments',
     long_description_content_type='text/markdown',
     long_description=readme(),
-    url='https://github.com/tjjlemaire/labinstruments',
+    url='https://github.com/tjjlemaire/instrulink',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
@@ -40,7 +40,7 @@ setup(
     author='Theo Lemaire',
     author_email='theo.lemaire1@gmail.com',
     license='MIT',
-    packages=['labinstruments'],
+    packages=['instrulink'],
     scripts=getFiles('scripts'),
     install_requires=getRequirements(),
     zip_safe=False

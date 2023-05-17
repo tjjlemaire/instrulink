@@ -4,7 +4,7 @@
 # @Last Modified by:   Theo Lemaire
 # @Last Modified time: 2023-05-17 10:54:43
 
-from labinstruments import grab_manipulator, SutterError, logger
+from instrulink import grab_manipulator, SutterError, logger
 
 try:
     # Grab micro-manipulator

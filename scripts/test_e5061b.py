@@ -8,8 +8,8 @@
 
 import logging
 
-from labinstruments import VisaError, logger
-from labinstruments.keysight_e5061b import KeysightE5061B
+from instrulink import VisaError, logger
+from instrulink.keysight_e5061b import KeysightE5061B
 
 
 logger.setLevel(logging.DEBUG)

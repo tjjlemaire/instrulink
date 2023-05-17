@@ -7,8 +7,8 @@
 import argparse
 import matplotlib.pyplot as plt
 
-from labinstruments import logger, si_format, grab_oscilloscope, VisaError
-from labinstruments.constants import TTL_PAMP
+from instrulink import logger, si_format, grab_oscilloscope, VisaError
+from instrulink.constants import TTL_PAMP
 
 # Default acquisition parameters
 tscale = 1e-3  # temporal scale (s/div)

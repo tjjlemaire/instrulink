@@ -4,7 +4,7 @@
 # @Last Modified by:   Theo Lemaire
 # @Last Modified time: 2023-05-17 10:54:12
 
-from labinstruments.nidaq import *
+from instrulink.nidaq import *
 
 # Parameters
 interval = 1.5 #20.019  # s

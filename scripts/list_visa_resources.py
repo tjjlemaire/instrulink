@@ -6,6 +6,6 @@
 
 ''' List all available VISA resources '''
 
-from labinstruments import list_visa_resources
+from instrulink import list_visa_resources
 
 list_visa_resources()

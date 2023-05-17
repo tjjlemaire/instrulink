@@ -4,7 +4,7 @@
 # @Last Modified by:   Theo Lemaire
 # @Last Modified time: 2023-05-17 10:54:49
 
-from labinstruments.camera import grab_camera, TriggerSource
+from instrulink.camera import grab_camera, TriggerSource
 
 # Grab camera
 cam = grab_camera()
