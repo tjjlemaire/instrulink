@@ -2,16 +2,14 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 11:42:27
+# @Last Modified time: 2023-05-17 10:54:38
 
 import time
-
-from lab_instruments.constants import MV_TO_V
 
 from .waveform_generator import *
 from .logger import logger
 from .si_utils import si_format
-from .constants import TTL_PWIDTH, TTL_PAMP
+from .constants import TTL_PWIDTH, TTL_PAMP, MV_TO_V
 
 
 class RigolDG1022Z(WaveformGenerator):

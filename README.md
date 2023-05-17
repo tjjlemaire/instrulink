@@ -1,4 +1,4 @@
-# lab_instruments
+# labinstruments
 
 Python package to interface diverse laboratory instruments, including:
 - **waveform generators**: Rigol DG 1022Z (`RigolDG1022Z`)
@@ -15,8 +15,8 @@ Python package to interface diverse laboratory instruments, including:
 
 ## Installation
 
-- Clone this repository: `git clone https://github.com/tjjlemaire/lab_instruments.git`
-- Move to that directory (`cd lab_instruments`) and install it as a python package: `pip install -e .`
+- Clone this repository: `git clone https://github.com/tjjlemaire/labinstruments.git`
+- Move to that directory (`cd labinstruments`) and install it as a python package: `pip install -e .`
 
 ## Usage
 

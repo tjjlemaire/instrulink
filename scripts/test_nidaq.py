@@ -1,5 +1,10 @@
+# -*- coding: utf-8 -*-
+# @Author: Theo Lemaire
+# @Date:   2023-04-25 13:25:00
+# @Last Modified by:   Theo Lemaire
+# @Last Modified time: 2023-05-17 10:54:12
 
-from lab_instruments.nidaq import *
+from labinstruments.nidaq import *
 
 # Parameters
 interval = 1.5 #20.019  # s

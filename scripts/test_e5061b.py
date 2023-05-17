@@ -2,14 +2,14 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 12:59:52
+# @Last Modified time: 2023-05-17 10:54:14
 
 ''' Initiate test sequence with Keysight network analyzer. '''
 
 import logging
 
-from lab_instruments import VisaError, logger
-from lab_instruments.keysight_e5061b import KeysightE5061B
+from labinstruments import VisaError, logger
+from labinstruments.keysight_e5061b import KeysightE5061B
 
 
 logger.setLevel(logging.DEBUG)

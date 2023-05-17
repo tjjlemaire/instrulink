@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 11:07:39
+# @Last Modified time: 2023-05-17 10:54:58
 
 ''' Initiate test sequence with Rigol waveform generator. '''
 
@@ -10,7 +10,7 @@ import logging
 import time
 import argparse
 
-from lab_instruments import logger, grab_generator, VisaError
+from labinstruments import logger, grab_generator, VisaError
 
 logger.setLevel(logging.INFO)
 

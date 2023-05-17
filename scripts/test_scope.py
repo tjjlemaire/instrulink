@@ -2,13 +2,13 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 17:42:22
+# @Last Modified time: 2023-05-17 10:55:01
 
 import argparse
 import matplotlib.pyplot as plt
 
-from lab_instruments import logger, si_format, grab_oscilloscope, VisaError
-from lab_instruments.constants import TTL_PAMP
+from labinstruments import logger, si_format, grab_oscilloscope, VisaError
+from labinstruments.constants import TTL_PAMP
 
 # Default acquisition parameters
 tscale = 1e-3  # temporal scale (s/div)
