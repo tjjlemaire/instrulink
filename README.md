@@ -7,17 +7,26 @@ This python package provides built-in classes to interface diverse laboratory in
 - **infrared cameras**: FLIR cameras (`Camera`)
 - **acquisition systems**: [NI DAQmx](https://www.ni.com/docs/en-US/bundle/ni-daqmx/page/daqhelp/nidaqoverview.html) for pulse triggers
 
-## Requirements
+## Software dependencies
 
-- [FlyCapture SDK](https://www.flir.com/products/flycapture-sdk/) (to use the FLIR camera interface class)
-- Anaconda
-- Python 3.6 (for compliance with FlyCapture SDK)
+To interface VISA instruments (i.e., waveforms generators and oscilloscopes), you will need to:
+- Download and install [IVI Compliance Package 21.0](https://www.ni.com/en-us/support/downloads/drivers/download.ivi-compliance-package.html#460618)
+  When installing, opt to include .NET Adapters and COM adapters as well (these are not selected by default)
+- Download and install the [NI Package Manager](https://www.ni.com/en-us/support/downloads/software-products/download.package-manager.html#322516). Through the NI package manager, also install the NI-VISA Driver.
+
+To interface Rigol instruments specifically, you will also need to download and install the associated [Rigol driver](https://www.rigolna.com/products/waveform-generators/dg1000z/)
+
+To interface FLIR cameras, you will need to download and install the [FlyCapture SDK](https://www.flir.com/products/flycapture-sdk/)
+
+You will also need to install `Python 3.6` (for compliance with FlyCapture SDK), preferably as part of an environment manager such as [Anaconda](https://www.anaconda.com/products/individual).
 
 ## Installation
 
-`pip install instrulink`
+This package can be directly installed from PyPI:
 
-If you wish to amend the package code, you can also clone this repo and install it locally as an editable package: 
+```pip install instrulink```
+
+However, if you wish to amend the package code, you can also clone this repo and install it locally as an editable package: 
 
 ```
 git clone https://github.com/tjjlemaire/instrulink.git
