@@ -3,37 +3,31 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2021-02-18 18:05:57
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-03-15 15:45:36
+# @Last Modified time: 2023-05-22 09:52:23
 
-from waveform_generator import *
-from logger import logger
+from .visa_instrument import VisaError
+from .waveform_generator import *
+from .logger import logger
 
 
-class Keysight332210A(WaveformGenerator):
-    ''' High-level interface to Keysight/Agilent 33210A function generator. '''
+class Keysight33500B(WaveformGenerator):
+    ''' High-level interface to Keysight/Agilent 33500B function generator. '''
 
-    USB_ID = 'USB0::0x0957::0x1507::MY57000744::INSTR'
-    NO_ERROR_CODE = '+0,"No error"'
-    ANGLE_UNITS = ('DEG', 'RAD')
-    MAX_LEN_TEXT = 40
-    WAVEFORM_TYPES = ('SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER')
-    FMAX = 10e6  # Hz
-    VMAX = 10.0  # V
-    BURST_MODES = ('TRIG', 'GAT')
-    MAX_BURST_PERIOD = 10.0  # s
-    TRIGGER_SOURCES = ('IMM', 'EXT', 'BUS')
+    USB_ID = 'MY5\d+'  # USB identifier
+    NO_ERROR_CODE = '+0,"No error"'  # code returned when no error
+    ANGLE_UNITS = ('DEG', 'RAD')  # angle units
+    MAX_LEN_TEXT = 40  # maximum length of text strings
+    WAVEFORM_TYPES = ('SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER')  # waveform types
+    FMAX = 10e6  # maximum frequency (Hz)
+    VMAX = 10.0  # maximum voltage (V)
+    BURST_MODES = ('TRIG', 'GAT')  # burst modes
+    MAX_BURST_PERIOD = 10.0  # maximum burst period (s)
+    TRIGGER_SOURCES = ('IMM', 'EXT', 'BUS')  # trigger sources
+    CHANNELS = (1, 2)  # channels
 
     SWEEP_SCALES = ('LIN', 'LOG')
     MOD_FUNCS = ('SIN', 'SQU', 'RAMP', 'NRAM', 'TRI', 'NOIS', 'USER')
     MOD_SOURCES = ('INT', 'EXT')
-
-    def __init__(self, testmode=False):
-        ''' Initialization. '''
-        self.mod_key = None
-        self.testmode = testmode
-        self.instrument_handle = None
-        if not self.testmode:
-            self.connect()
 
     def beep(self):
         ''' Issue a single beep immediately. '''
@@ -111,7 +105,7 @@ class Keysight332210A(WaveformGenerator):
         self.check_duty_cycle(DC)
         self.write(f'FUNC:SQU:DCYC {DC}')
 
-    def get_square_dury_cycle(self):
+    def get_square_duty_cycle(self):
         return float(self.query('FUNC:SQU:DCYC?'))
 
     # --------------------- BURST ---------------------
@@ -195,6 +189,11 @@ class Keysight332210A(WaveformGenerator):
         logger.info('waiting for external trigger...')
         self.set_trigger_source('EXT')
         self.enable_output()
+    
+    def wait_for_manual_trigger(self):
+        logger.info('waiting for external trigger...')
+        self.set_trigger_source('MAN')
+        self.enable_output()
 
     # --------------------- TRIGGER OUTPUT ---------------------
 
@@ -266,7 +265,7 @@ class Keysight332210A(WaveformGenerator):
     def set_mod_source(self, source):
         ''' Set the source type (internal or external) of a specific modulation mode. '''
         if source not in self.MOD_SOURCES:
-            raise FuncGenError(
+            raise VisaError(
                 f'{source} is not a valid modulating source (options are {self.MOD_SOURCES})')
         self.write(f'{self.mod_key}:SOUR {source}')
 
@@ -277,7 +276,7 @@ class Keysight332210A(WaveformGenerator):
     def set_mod_func(self, func):
         ''' Set the nature of the modulating function. '''
         if func not in self.MOD_FUNCS:
-            raise FuncGenError(
+            raise VisaError(
                 f'{func} is not a valid modulating function (options are {self.MOD_FUNCS})')
         self.write(f'{self.mod_key}:INT:FUNC {func}')
 
