@@ -1,0 +1,270 @@
+[33mcommit 9110f95ec1ab128d20762b51075d6baf5f229596[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon May 22 09:53:19 2023 -0400
+
+    keysight interface WIP
+
+[33mcommit b01f4504ca32db957ac0657889c1562c3b0b4406[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon May 22 09:20:08 2023 -0400
+
+    added keysight files (to be curated)
+
+[33mcommit 14c6d44cd6e8143dcf76562f85b9f593ecb6d8d6[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Fri May 19 17:12:24 2023 -0400
+
+    updated readme
+
+[33mcommit 15740fd5dcec2af3e3a329b3e14f3a8588b9112a[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed May 17 15:18:31 2023 -0400
+
+    updated readme with installation instructions
+
+[33mcommit 37fd4369752346a92b564fd8837716c6cf938864[m[33m ([m[1;33mtag: v1.0.0[m[33m)[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed May 17 15:13:22 2023 -0400
+
+    updated readme
+
+[33mcommit 20d72f20fd96c90c54bf5a0190af86ad93d4038f[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed May 17 15:00:33 2023 -0400
+
+    renamed as "instrulink"
+
+[33mcommit f995ded2e3068985488f292c81315b275573668b[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed May 17 14:48:10 2023 -0400
+
+    updated readme
+
+[33mcommit 8299637c88ebe3603d60a74eedd937266bdc8ce6[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed May 17 11:49:23 2023 -0400
+
+    commented disable_output line. updated setup file
+
+[33mcommit fa6438bd7f01e0f00c126eb73cfc953ccda7901a[m
+Author: Théo Lemaire <38719838+tjjlemaire@users.noreply.github.com>
+Date:   Wed May 17 11:00:09 2023 -0400
+
+    Create python-publish.yml
+
+[33mcommit 27b72efd352967e030c9897a8c80ad03eccb006b[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed May 17 10:55:55 2023 -0400
+
+    renamed as labinstruments
+
+[33mcommit 5259884e719f9477f5cb19e793bb2de50d60ab33[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed May 17 09:36:21 2023 -0400
+
+    updated readme
+
+[33mcommit 704f790a68b95f5037f1554bd385b21cbdfbe220[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Thu May 11 18:00:50 2023 -0400
+
+    improved factory interface
+
+[33mcommit 5f79e1a0f42b6dc9e80ccda831ee817e98d5b6c6[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Thu May 11 15:35:47 2023 -0400
+
+    added list_visa_resources high-level function
+
+[33mcommit a7bb578b68c666a23dd53e27dc104d8e280a7e13[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Thu May 11 13:01:32 2023 -0400
+
+    cleaned up imports
+
+[33mcommit a30748e84aeb44b3417ad92c2d8e69719b384ef1[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Thu May 11 12:56:45 2023 -0400
+
+    updated readme
+
+[33mcommit 60821054518721724c19a61cb05a2ebf2e11719f[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Thu May 11 12:55:46 2023 -0400
+
+    updated readme
+
+[33mcommit 9d742cdd3e91a3c672257033c759e5f56b9835f6[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Thu May 11 12:45:27 2023 -0400
+
+    harmonized scope interface. improved tests. added logging to generator functions
+
+[33mcommit e880b04ac30d3b847636a71cd95d01ac272431b6[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Thu May 11 09:21:05 2023 -0400
+
+    created factory module for easy instrument access
+
+[33mcommit 58fbdb659bb0f11adc34a44fec733867bc3003b4[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed May 10 19:18:12 2023 -0400
+
+    added rigol scope class. cleaned up package
+
+[33mcommit 6e25ff57dc997f8f4121aa5cb0dc31a0948086b4[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Tue May 9 10:53:07 2023 -0400
+
+    moved init file inside package folder
+
+[33mcommit 73ab5842c0a06cf64ae5e8b303ae0919d2d6a930[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon May 8 17:46:51 2023 -0400
+
+    tested rigol trigger
+
+[33mcommit d7dfeece9b285a4f00e6562893175df34e7afcf2[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon May 8 17:37:15 2023 -0400
+
+    fixed wf gen programmatic trigger
+
+[33mcommit 6fbc548f115f43e8c2383db1b1a8cc6f78e87182[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Tue Apr 25 16:18:58 2023 -0400
+
+    added thread locking ability to visa instruments
+
+[33mcommit 01421a874f5a3a990ffdb62963c12efc11e17caa[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Tue Apr 25 13:28:15 2023 -0400
+
+    fixed set_gated_sine_burst and added option to set modulator trigger source
+
+[33mcommit b1f9bd827c1b0195a352b51adb347af6e262b3e3[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed Apr 5 11:59:47 2023 -0400
+
+    added get_name method to sutter
+
+[33mcommit cf42032d9b8fd630a0fd327a433a32106f712abe[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed Nov 16 11:54:02 2022 -0500
+
+    improved USB_ID recognition
+
+[33mcommit 51c8166f096683ec5b4b66372ab32089a4940dc8[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed Oct 12 16:43:36 2022 -0400
+
+    added scope filter features
+
+[33mcommit 3298e3e86d01da7c428d5e9b631f2cf4cd098bf0[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed Oct 12 15:38:24 2022 -0400
+
+    fiexed struct import error
+
+[33mcommit e9862625d41bf0a09046cdb8f9dd0b96a87dab06[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed Oct 12 15:37:52 2022 -0400
+
+    new scope features
+
+[33mcommit 33e3918625e66bc1a8904691b7048dc6b10b31e1[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Thu Sep 8 16:38:03 2022 -0400
+
+    small improvements
+
+[33mcommit dc0e0482a63f001db87736e7f5f7c953a80dc355[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Wed Sep 7 21:35:12 2022 -0400
+
+    added trigger / acqs features to rigol & bk
+
+[33mcommit ec39b24ee0bbab6abc0f3459e040935be67651bd[m
+Merge: f6acfc7 cd82d08
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Tue Sep 6 13:59:58 2022 -0400
+
+    Merge branch 'main' of https://github.com/tjjlemaire/lab_instruments into main
+
+[33mcommit f6acfc7e5caf14e483133a00731ae4fd3a7556f5[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Tue Sep 6 13:59:57 2022 -0400
+
+    added wf gen unlock front panel on disconnect
+
+[33mcommit cd82d08a129664258bf821ad6a663a4c2f5b0edc[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon Aug 29 12:45:47 2022 -0400
+
+    changed camera default h264 bitrate
+
+[33mcommit 358c3bad1ae8c67a3ec887d2316631b18664a6fc[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Fri Aug 26 16:41:50 2022 -0400
+
+    fixed nidaq
+
+[33mcommit a662fc77bf6b647935f40d71b288798880f8d155[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Fri Aug 26 13:51:11 2022 -0400
+
+    added nidaq support
+
+[33mcommit f3609d09dcb48b31ed4e0de6a8d8cc400ccfeefc[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon Aug 15 11:00:38 2022 -0400
+
+    updated requirements in README
+
+[33mcommit 8cd3f1de15e6567da5106026822cac085c4a4f88[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon Aug 15 10:46:03 2022 -0400
+
+    removed msg
+
+[33mcommit 5d453268968d9c364067540654f493892b0dd2b8[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon Aug 15 10:38:40 2022 -0400
+
+    new msg
+
+[33mcommit 8c13ee1ff646a85dcd4748130a4444c6d47ae09d[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon Aug 15 10:21:41 2022 -0400
+
+    added list_visa_resources script
+
+[33mcommit 663dacb8920299d363fc1b8d932431ab0f5c6c22[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon Aug 15 10:03:08 2022 -0400
+
+    added repo url to setup
+
+[33mcommit 688a3b8ccf9656520fb2be4b5c5f1f96baa001df[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon Aug 15 10:01:53 2022 -0400
+
+    updated reqs
+
+[33mcommit 88e09d9291e34efe2cc11730c16f023949fcbe56[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon Aug 15 10:00:16 2022 -0400
+
+    package organization
+
+[33mcommit 52d1dae70620357331b9f1fbdc26a1b25d9aa920[m
+Author: Theo Lemaire <theo.lemaire1@gmail.com>
+Date:   Mon Aug 15 09:47:30 2022 -0400
+
+    initial commit with code
+
+[33mcommit 2d48fd65629cbac9685d4529c239b4c33c443e25[m
+Author: Théo Lemaire <38719838+tjjlemaire@users.noreply.github.com>
+Date:   Mon Aug 15 09:44:45 2022 -0400
+
+    Initial commit

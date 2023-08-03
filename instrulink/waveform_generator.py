@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 11:41:37
+# @Last Modified time: 2023-08-03 17:19:37
 
 import abc
 import numpy as np
@@ -24,7 +24,7 @@ class WaveformGenerator(VisaInstrument):
         super().connect()
         self.disable_output()
         self.beep()
-        self.display_for('instrument connected', duration=1.0)
+        # self.display_for('instrument connected', duration=1.0)
 
     def get_version(self):
         ''' Get system SCPI version. '''
@@ -250,6 +250,21 @@ class WaveformGenerator(VisaInstrument):
         ''' Get the waveform voltage offset (V). '''
         raise NotImplementedError
     
+    def check_phase(self, phi):
+        ''' Check the waveform phase '''
+        if phi < 0. or phi > 360:
+            raise VisaError(f'phase out of range : {phi} (must be within [0, 360]deg)')
+
+    @abc.abstractmethod
+    def set_waveform_phase(self, *args, **kwargs):
+        ''' Set the waveform phase of the specified channel (in degrees) '''
+        raise NotImplementedError
+    
+    @abc.abstractmethod
+    def get_waveform_phase(self, *args, **kwargs):
+        ''' Get the waveform phase of the specified channel (in degrees) '''
+        raise NotImplementedError
+    
     def check_duty_cycle(self, DC):
         ''' Check duty cycle '''
         if DC <= 0. or DC >= 100.:
@@ -338,7 +353,7 @@ class WaveformGenerator(VisaInstrument):
         ''' Check the burst duration and return corresponding number of cycles '''
         if t < T:
             raise VisaError(
-                f'burst duration ({t:.2e} s) shorter than stimulus period ({T:.2e} s)')
+                f'burst duration ({si_format(t, 2)}s) shorter than stimulus periodicity ({si_format(T, 2)}s)')
         if t > self.MAX_BURST_PERIOD:
             raise VisaError(
                 f'burst duration ({t:.2e} s) above max value ({self.MAX_BURST_PERIOD:.2e} s)')
@@ -378,6 +393,21 @@ class WaveformGenerator(VisaInstrument):
     def get_burst_gated_polarity(self, *args, **kwargs):
         ''' Get the gate polarity of the gated burst of the specified channel '''
         raise NotImplementedError
+    
+
+    # --------------------- MODULATION ---------------------
+
+    def check_modulation_mode(self, mode):
+        ''' Check that modulation mode is available on the instrument '''
+        if mode not in self.MOD_MODES:
+            raise VisaError(
+                f'{mode} is not a valid modulation mode (options are {self.MOD_MODES})')
+    
+    def check_modulation_source(self, source):
+        ''' Check that modulation source is available on the instrument '''
+        if source not in self.MOD_SOURCES:
+            raise VisaError(
+                f'{source} is not a valid modulation source (options are {self.MOD_SOURCES})')
     
     # --------------------- TRIGGER ---------------------
 
