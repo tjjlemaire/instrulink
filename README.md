@@ -36,6 +36,10 @@ pip install -e .
 
 ## Usage
 
-Instruments can be easily accessed via generic `grab_camera`, `grab_generator`, `grab_oscilloscope` and `grab_manipulator` functions. By default, these functions will automatically detect the first available instrument connected to the PC. Optionally, you can also provide an instrument `key` to connect to a specific model type (e.g. `grab_osciloscope(key='bk')` to specifically connect to a B&K Precision oscilloscope).
+### Connecting to instruments
+
+Instruments can be easily connected to via generic `grab_camera`, `grab_generator`, `grab_oscilloscope` and `grab_manipulator` functions. By default, these functions will automatically detect the first available instrument connected to the PC. Optionally, you can also provide an instrument `key` to connect to a specific model type (e.g. `grab_osciloscope(key='bk')` to specifically connect to a B&K Precision oscilloscope).
+
+### Using instruments
 
 Example scripts are located in the `/scripts` subfolder.
