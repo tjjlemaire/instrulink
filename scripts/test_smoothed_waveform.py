@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-03 17:30:48
+# @Last Modified time: 2023-08-04 11:38:21
 
 ''' Initiate test sequence with Rigol waveform generator. '''
 
@@ -11,6 +11,7 @@ import logging
 import time
 import argparse
 
+from instrulink.rigol_dg1022z import RigolDG1022Z
 from instrulink import logger, grab_generator, VisaError
 from instrulink.wf_utils import *
 import matplotlib.pyplot as plt
@@ -42,15 +43,21 @@ trigger_source = args.source.upper()  # trigger source
 mod_T = args.T  # modulation period (s)
 
 try:
-    # Grab function generator
-    wg = grab_generator()
 
-    wg.set_modulated_sine_burst(
-        Fdrive, Vpp, tstim, PRF, DC, tramp=tramp, ich_mod=ich_mod, ich_sine=ich_sine, 
-        T=mod_T, trig_source=trigger_source)
+    npts = RigolDG1022Z.ARB_WF_MAXNPTS_PER_PACKET
+    for tramp in [1e-4, 4.5e-3]:
+        get_DC_smoothed_pulse_envelope(
+            npts, PRF, DC, tramp=tramp, plot='all', nreps=5, Fdrive=Fdrive)
 
-    # Unlock front panel
-    wg.unlock_front_panel()
+    # # Grab function generator
+    # wg = grab_generator()
+
+    # wg.set_modulated_sine_burst(
+    #     Fdrive, Vpp, tstim, PRF, DC, tramp=tramp, ich_mod=ich_mod, ich_sine=ich_sine, 
+    #     T=mod_T, trig_source=trigger_source)
+
+    # # Unlock front panel
+    # wg.unlock_front_panel()
 
     # Show figures
     plt.show()
