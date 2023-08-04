@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-03 17:19:37
+# @Last Modified time: 2023-08-04 15:55:47
 
 import abc
 import numpy as np
@@ -352,8 +352,9 @@ class WaveformGenerator(VisaInstrument):
     def check_burst_duration(self, t, T):
         ''' Check the burst duration and return corresponding number of cycles '''
         if t < T:
-            raise VisaError(
-                f'burst duration ({si_format(t, 2)}s) shorter than stimulus periodicity ({si_format(T, 2)}s)')
+            if not np.isclose(T - t, 0):
+                raise VisaError(
+                    f'burst duration ({si_format(t, 2)}s) shorter than stimulus periodicity ({si_format(T, 2)}s)')
         if t > self.MAX_BURST_PERIOD:
             raise VisaError(
                 f'burst duration ({t:.2e} s) above max value ({self.MAX_BURST_PERIOD:.2e} s)')

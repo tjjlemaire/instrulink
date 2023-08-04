@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-03 17:40:02
+# @Last Modified time: 2023-08-04 16:00:07
 
 import time
 import re
@@ -987,7 +987,7 @@ class RigolDG1022Z(WaveformGenerator):
         # Set channel trigger source
         self.set_trigger_source(ich, trig_source)
 
-    def set_gated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, ich_mod=1, ich_sine=2, **kwargs):
+    def set_gated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, ich_gate=1, ich_carrier=2, **kwargs):
         '''
         Set sine burst on channel 2 gated by channel 1 (used for pulsed US stimulus)
         
@@ -996,33 +996,36 @@ class RigolDG1022Z(WaveformGenerator):
         :param tstim: total stimulus duration (s)
         :param PRF: pulse repetition frequency (Hz)
         :param DC: duty cycle (%)
-        :param ich_mod: index of the modulating signal channel
-        :param ich_sine: index of the carrier signal channel
+        :param ich_gate: index of the gating channel
+        :param ich_carrier: index of the carrier channel
         '''
         # Check that channels indexes are different
-        if ich_mod == ich_sine:
-            raise VisaError('gating and signal channels cannot be identical')
+        if ich_gate == ich_carrier:
+            raise VisaError('gating and carrier channels cannot be identical')
         
-        # # Disable all outputs
-        # self.disable_output()
+        # Disable all outputs (carrier channel first to avoid erroneous outputs)
+        self.disable_output_channel(ich_carrier)
+        self.disable_output_channel(ich_gate)
         
         # Set gating channel parameters
-        self.set_gating_pulse_train(ich_mod, PRF, tstim, **kwargs)
+        self.set_gating_pulse_train(ich_gate, PRF, tstim, **kwargs)
 
         # Set sinewave channel parameters
         tburst = DC / (100 * PRF)  # s
-        logger.info(f'setting channel {ich_sine} to output {si_format(tburst, 2)}s long, ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave triggered externally by channel {ich_mod}')
-        self.apply_sine(ich_sine, Fdrive, Vpp)
-        self.set_trigger_source(ich_sine, 'EXT')
-        self.set_burst_duration(ich_sine, tburst)  # s
-        self.enable_burst(ich_sine)
-        self.set_trigger_source(ich_sine, 'EXT')
+        logger.info(f'setting channel {ich_carrier} to output {si_format(tburst, 2)}s long, ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave triggered externally by channel {ich_gate}')
+        self.apply_sine(ich_carrier, Fdrive, Vpp)
+        self.set_trigger_source(ich_carrier, 'EXT')
+        self.set_burst_duration(ich_carrier, tburst)  # s
+        self.enable_burst(ich_carrier)
+        self.set_trigger_source(ich_carrier, 'EXT')
 
-        # Enable all outputs (only if amplitude is > 0)
+        # If carrier amplitude is > 0, enable all outputs 
+        # (carrier channel last to avoid erroneous outputs)
         if Vpp > 0.:
-            self.enable_output()
+            self.enable_output_channel(ich_gate)
+            self.enable_output_channel(ich_carrier)
     
-    def set_modulated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, tramp=0, ich_mod=1, ich_sine=2, **kwargs):
+    def set_modulated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, tramp=0, ich_mod=1, ich_carrier=2, **kwargs):
         '''
         Set sine burst on channel 2 amplitude modulated by channel 1.
         Used for (smoothed) pulsed US stimulus.
@@ -1033,28 +1036,31 @@ class RigolDG1022Z(WaveformGenerator):
         :param PRF: pulse repetition frequency (Hz)
         :param DC: duty cycle (%)
         :param tramp: nominal pulse ramping duration (s), defaults to 0
-        :param ich_mod: index of the modulating signal channel
-        :param ich_sine: index of the carrier signal channel
+        :param ich_mod: index of the modulating channel
+        :param ich_carrier: index of the carrier channel
         '''
         # Check that channels indexes are different
-        if ich_mod == ich_sine:
-            raise VisaError('gating and signal channels cannot be identical')
+        if ich_mod == ich_carrier:
+            raise VisaError('gating and carrier channels cannot be identical')
         
-        # # Disable all outputs
-        self.disable_output()
+        # Disable all outputs (carrier channel first to avoid erroneous outputs)
+        self.disable_output_channel(ich_carrier)
+        self.disable_output_channel(ich_mod)
         
         # Set envelope modulating channel parameters
         self.set_modulating_pulse_train(ich_mod, PRF, DC, tstim, tramp=tramp, **kwargs)
 
         # Set sinewave channel parameters
-        logger.info(f'setting channel {ich_sine} to output ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave amplitude modulated externally by channel {ich_mod}')
-        self.apply_sine(ich_sine, Fdrive, Vpp, 0)
-        self.enable_am(ich_sine)
-        self.set_am_source(ich_sine, 'EXT')
+        logger.info(f'setting channel {ich_carrier} to output ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave amplitude modulated externally by channel {ich_mod}')
+        self.apply_sine(ich_carrier, Fdrive, Vpp, 0)
+        self.enable_am(ich_carrier)
+        self.set_am_source(ich_carrier, 'EXT')
 
-        # Enable all outputs (only if amplitude is > 0)
+        # If carrier amplitude is > 0, enable all outputs 
+        # (carrier channel last to avoid erroneous outputs)
         if Vpp > 0.:
-            self.enable_output()
+            self.enable_output_channel(ich_mod)
+            self.enable_output_channel(ich_carrier)
     
     def set_looping_sine_burst(self, ich, Fdrive, Vpp=.1, ncycles=200, PRF=100., tramp=0, ich_trig=None):
         '''
@@ -1068,33 +1074,36 @@ class RigolDG1022Z(WaveformGenerator):
         :param tramp: nominal pulse ramping duration (s), defaults to 0
         :param ich_trig (optional): triggering channel index
         '''
+        # Cast number of cycles to integer
+        ncycles = int(np.round(ncycles))
+
         # If trigger channel is different than signal channel
         if ich_trig is not None:
-            # Compute nominal burst duration
+            # Compute nominal burst duration and duty cycle
             tburst = ncycles / Fdrive  # s
+            DC = PRF * tburst * 100  # %
 
             # If no ramp time is speficied
             if tramp == 0:
                 # Use `set_gated_sine_burst` to set up loop
                 self.set_gated_sine_burst(
-                    Fdrive, Vpp, tburst, 1. / tburst, PRF, 
-                    T=1. / PRF, ich_mod=ich_trig, ich_sine=ich)
+                    Fdrive, Vpp, tburst, 1 / tburst, 100, 
+                    T=1. / PRF, ich_gate=ich_trig, ich_carrier=ich)
+                # self.set_gated_sine_burst(
+                #     Fdrive, Vpp, tburst, 1. / tburst, PRF, 
+                #     T=1. / PRF, ich_gate=ich_trig, ich_carrier=ich)
                 # Start trigger loop 
                 self.start_trigger_loop(ich_trig, T=1. / PRF)
 
             # Otherwise
             else:
                 # Use `set_modulated_sine_burst` to set up loop
-                DC = PRF * tburst * 100  # %
                 if DC > 100:
                     raise ValueError(f'{si_format(tburst, 2)}s burst cannot be pulsed at {PRF:.2f} Hz')
                 self.set_modulated_sine_burst(
                     Fdrive, Vpp, 2 / PRF, PRF, DC, tramp=tramp, 
-                    T=1. / PRF, ich_mod=ich_trig, ich_sine=ich)
+                    T=1. / PRF, ich_mod=ich_trig, ich_carrier=ich)
                 self.disable_burst(ich_trig)
-
-            # Enable output
-            self.enable_output()
         
         # Otherwise, set up loop directly on signal channel
         else:
@@ -1111,7 +1120,7 @@ class RigolDG1022Z(WaveformGenerator):
             logger.info(f'setting ({params_str}) sine wave looping at {PRF:.1f} Hz on channel {ich}')
             
             # Disable all outputs
-            self.disable_output()
+            self.disable_output_channel(ich)
             
             # Set sine wave channel parameters
             self.apply_sine(ich, Fdrive, Vpp)
