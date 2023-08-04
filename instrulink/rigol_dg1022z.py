@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-04 16:11:58
+# @Last Modified time: 2023-08-04 17:17:00
 
 import time
 import re
@@ -349,7 +349,8 @@ class RigolDG1022Z(WaveformGenerator):
         self.instrument_handle.write_binary_values(
             f'{self.PREFIX}{cmd}', values, **kwargs)
 
-    def upload_arbitrary_waveform(self, ich, y, dtype='dac16', precision=2, adapt_npoints=True):
+    def upload_arbitrary_waveform(self, ich, y, dtype='dac16', precision=2,
+                                  adapt_npoints=True, activate=False):
         ''' 
         Upload an arbitrary waveform into volatile memory of a specific channel
         
@@ -361,6 +362,7 @@ class RigolDG1022Z(WaveformGenerator):
             - "dac16": 16-bits binary DAC values between 0 and 16383
         :param precision: number of decimal digits to use for each sample (default: 2, only used with "float" data type)
         :param adapt_npoints: whether to adapt the waveform vector to match the reference number of points of instrument waveforms
+        :param activate: whether to set waveform type to arbitrary after upload (default: False)
         '''
         # Check channel index
         self.check_channel_index(ich)
@@ -426,6 +428,10 @@ class RigolDG1022Z(WaveformGenerator):
 
         # Set output mode to frequency to enable use as amplitude modulator
         self.set_arbitrary_output_mode(ich, 'FREQ')
+
+        # If specified, set waveform type to arbitrary
+        if activate:
+            self.set_waveform_type(ich, 'USER')
 
     @property
     def ARB_WF_DAC_MAX(self):
@@ -961,9 +967,9 @@ class RigolDG1022Z(WaveformGenerator):
             # Design smoothed waveform with appropriate number of points
             npts = self.ARB_WF_MAXNPTS_PER_PACKET
             _, y = get_DC_smoothed_pulse_envelope(npts, PRF, DC, tramp=tramp, plot='all')
-            # Upload it to volatile memory of specified channel, and set waveform type to "user"
-            self.upload_arbitrary_waveform(ich, y)
-            self.set_waveform_type(ich, 'USER')
+            # Upload it to volatile memory of specified channel, 
+            # and set waveform type to "user"
+            self.upload_arbitrary_waveform(ich, y, activate=True)
         # Otherwise
         else:
             # Use standard rectangular pulse with specific duty cycle
