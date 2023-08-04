@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-04 16:00:07
+# @Last Modified time: 2023-08-04 16:11:58
 
 import time
 import re
@@ -1081,7 +1081,6 @@ class RigolDG1022Z(WaveformGenerator):
         if ich_trig is not None:
             # Compute nominal burst duration and duty cycle
             tburst = ncycles / Fdrive  # s
-            DC = PRF * tburst * 100  # %
 
             # If no ramp time is speficied
             if tramp == 0:
@@ -1089,17 +1088,16 @@ class RigolDG1022Z(WaveformGenerator):
                 self.set_gated_sine_burst(
                     Fdrive, Vpp, tburst, 1 / tburst, 100, 
                     T=1. / PRF, ich_gate=ich_trig, ich_carrier=ich)
-                # self.set_gated_sine_burst(
-                #     Fdrive, Vpp, tburst, 1. / tburst, PRF, 
-                #     T=1. / PRF, ich_gate=ich_trig, ich_carrier=ich)
                 # Start trigger loop 
                 self.start_trigger_loop(ich_trig, T=1. / PRF)
 
             # Otherwise
             else:
-                # Use `set_modulated_sine_burst` to set up loop
+                # Compute DC
+                DC = PRF * tburst * 100  # %
                 if DC > 100:
                     raise ValueError(f'{si_format(tburst, 2)}s burst cannot be pulsed at {PRF:.2f} Hz')
+                # Use `set_modulated_sine_burst` to set up loop
                 self.set_modulated_sine_burst(
                     Fdrive, Vpp, 2 / PRF, PRF, DC, tramp=tramp, 
                     T=1. / PRF, ich_mod=ich_trig, ich_carrier=ich)
