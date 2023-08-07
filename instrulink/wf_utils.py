@@ -2,12 +2,14 @@
 # @Author: Theo Lemaire
 # @Date:   2022-08-15 09:29:37
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-04 16:01:52
+# @Last Modified time: 2023-08-07 14:50:28
 
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from scipy.signal import welch
 
+from .logger import logger
 from .si_utils import si_prefixes, si_format
 
 
@@ -68,6 +70,8 @@ def get_smooth_ramp(n, tramp=1, t0=0, kind='sine', direction='up', **kwargs):
     :param direction: ramp direction ('up' or 'down')
     :return: time and sigmoid vectors
     '''
+    if tramp <= 0:
+        raise ValueError('tramp must be positive')
     # Get time vector
     t = np.linspace(0, tramp, n) + t0 - tramp / 2
     # Get ramp-up vector
@@ -112,15 +116,26 @@ def get_smoothed_pulse_envelope(n, tramp, thigh, tlow=0, plot=None, Fdrive=None,
 
     # Derive number of points in ramp-up (and down) phases
     nramp = int(np.round(n * tramp / ttot)) + 1
+    dt = ttot / (n - 1)
 
     # Get data points for rising and falling edges
-    tr, yr = get_smooth_ramp(
-        nramp, tramp=tramp, t0=tonset + tramp / 2, direction='up', **kwargs)
-    tf, yf = get_smooth_ramp(
-        nramp, tramp=tramp, t0=toffset + tramp / 2, direction='down', **kwargs)
+    try:
+        tr, yr = get_smooth_ramp(
+            nramp, tramp=tramp, t0=tonset + tramp / 2, direction='up', **kwargs)
+        tf, yf = get_smooth_ramp(
+            nramp, tramp=tramp, t0=toffset + tramp / 2, direction='down', **kwargs)
+    except ValueError as e:
+        tr, yr = np.array([0.]), np.array([0.])
+        tf, yf = np.array([0.]), np.array([1.])
+    
+    # Check that ramp time is long enough to be resolved by the requested time step
+    if tr.size > 1:
+        dt = np.diff(tr)[0]
+    else:
+        logger.warning(
+            f'ramping time ({si_format(tramp, 2)}s) is too short to be resolved by the requested time step ({si_format(dt, 2)}s) -> switching to discrete transition')
     
     # Get data points for pulse "high" plateau
-    dt = np.diff(tr)[0]
     th = np.arange(tr[-1] + dt, toffset - dt / 2, dt)
     yh = np.ones(th.size)
 
@@ -263,28 +278,78 @@ def get_power_spectrum(t, y):
     return freqs, ps
 
 
-def get_continous_intervals(t):
+def get_continous_intervals(t, refdt):
     '''
     Identify intervals of continuity in time vector.
 
     :param t: time vector (s)
+    :param refdt: expected time step in continous time vector (s)
     :return: list of (start, end) pairs for each identified continuous time interval
     '''
+    # Check that time vector contains at least 2 elements
+    if t.size < 2:
+        raise ValueError('Time vector must contain at least 2 elements')
+    # Check that time contains at least 1 continous segment
+    if not np.isclose(np.diff(t), refdt).any():
+        raise ValueError('No continuity detected in time vector')
+    
+    # Identify discontinuities
     dt2 = np.diff(t, 2)
     iscontdt = np.isclose(dt2, 0)
     idiscont = np.where(~iscontdt)[0]
+
+    # Identify index boundaries of continuous intervals
     istarts, iends = [0], []
     for i1, i2 in zip(idiscont[::2], idiscont[1::2]):
         if i2 != i1 + 1:
-            raise ValueError('Discontinuity detected in baseline')
+            raise ValueError(f'invalid discontinuity indices: {i1}, {i2}')
         iends.append(i2)
         istarts.append(i2 + 1)
     iends.append(t.size - 1)
+
+    # Extract corresponding start and end times for each continuity region
     tstarts, tends = t[istarts], t[iends]
+
+    # Return list of (start time, end time) pairs
     return np.array(list(zip(tstarts, tends)))
 
 
-def plot_smoothed_waveform(tenv, yenv, Fdrive, unit='ms', ax=None, **kwargs):
+def get_bounds_per_region(t, y):
+    ''' 
+    Identify ramp-up, plateau, ramp-down, and baseline regions in waveform vector
+    
+    :param t: time vector (s)
+    :param y: waveform vector
+    :return: dictionary of (start, end) pairs for each identified region
+    '''
+    # Check that time step is consistent
+    dt = np.unique(np.round(np.diff(t), 10))
+    if dt.size > 1:
+        raise ValueError(f'Inconsistent time step detected: {dt}')
+    dt = dt[0]
+
+    # Identify ramp-up, plateau, ramp-down, and baseline regions
+    tregions = {
+        'ramp-up': t[np.where(np.diff(y) > 0)],
+        'plateau': t[np.where(y == 1)],
+        'ramp-down': t[np.where(np.diff(y) < 0)],
+        'baseline': t[np.where(y == 0)][1:],
+    }
+
+    # Identify time bounds for each valid region
+    tbounds = {}
+    for key, tvec in tregions.items():
+        try:
+            tbounds[key] = get_continous_intervals(tvec, dt)
+        except ValueError as e:
+            logger.warning(f'{key}: {e}')
+    
+    # Return dictionary of time bounds for each identified region
+    return tbounds
+
+
+def plot_smoothed_waveform(tenv, yenv, Fdrive, unit='ms', ax=None, title=None, 
+                           label=None, mark_regs=True, **kwargs):
     ''' 
     Plot a smoothed waveform from a time vector, an envelope vector and a carrier frequency.
 
@@ -293,6 +358,9 @@ def plot_smoothed_waveform(tenv, yenv, Fdrive, unit='ms', ax=None, **kwargs):
     :param Fdrive: carrier frequency (Hz)
     :param unit: time unit for plotting (default = 'ms')
     :param ax: axis handle (default = None)
+    :param title: title for the plot (default = None)
+    :param label: label for the plotted waveform (default = None)
+    :param mark_regs: flag indicating whether to mark identified regions (default = True)
     :return: figure handle
     '''
     # Get figure and axis handles
@@ -308,44 +376,49 @@ def plot_smoothed_waveform(tenv, yenv, Fdrive, unit='ms', ax=None, **kwargs):
     tdense /= tfactor
 
     # Plot waveform and its envelope
-    ax.plot(tdense, ydense, label='waveform')
-    ax.plot(tdense, yenvdense, label='envelope')
+    lh, *_ = ax.plot(tdense, yenvdense, label=label if label is not None else 'envelope')
+    ax.plot(tdense, ydense, c=lh.get_color(), alpha=0.5, label='waveform' if label is None else None)
     ax.set_xlabel(f'time ({unit})')
     ax.set_ylabel('amplitude')
     ax.axhline(0, c='k', ls='--')
 
     # Identify ramp-up, plateau, ramp-down, and baseline regions
-    thigh = get_continous_intervals(tdense[np.where(yenvdense == 1)])
-    tlow = get_continous_intervals(tdense[np.where(yenvdense == 0)][1:])
-    assert thigh.shape[0] == tlow.shape[0], 'Number of plateau and baseline windows must be equal'
-    npulses = thigh.shape[0]
-    trampup, trampdown = [], []
-    tref = 0
-    for iw in range(npulses):
-        trampup.append((tref, thigh[iw, 0]))
-        trampdown.append((thigh[iw, 1], tlow[iw, 0]))
-        tref = tlow[iw, 1]
-    trampup, trampdown = np.array(trampup), np.array(trampdown)
+    tbounds = get_bounds_per_region(tdense, yenvdense)
+    
+    # Get number of pulses
+    npulses = max(v.shape[0] for v in tbounds.values())
 
-    # Add title with breakdown of characteristic waveform phases
-    tramp = np.diff(trampup[0])[0]
-    tplateau = np.diff(thigh[0])[0]
-    tbase = np.diff(tlow[0])[0]
-    title = f'tramp = {tramp:.2f} {unit}, tplateau = {tplateau:.2f} {unit}, tbase = {tbase:.2f} {unit}'
-    if npulses > 1:
-        title = f'{title}, {npulses} pulses'
+    # Generate title with breakdown of characteristic waveform phases if not provided
+    if title is None:
+        l = []
+        if 'ramp-up' in tbounds:
+            l.append(f'tramp = {np.diff(tbounds["ramp-up"][0])[0]:.2f} {unit}')
+        elif 'ramp-down' in tbounds:
+            l.append(f'tramp = {np.diff(tbounds["ramp-down"][0])[0]:.2f} {unit}')
+        if 'plateau' in tbounds:
+            l.append(f'tplateau = {np.diff(tbounds["plateau"][0])[0]:.2f} {unit}')
+        if 'baseline' in tbounds:
+            l.append(f'tbase = {np.diff(tbounds["baseline"][0])[0]:.2f} {unit}')
+        if npulses > 1:
+            l.append(f'{npulses} pulses')
+        title = ', '.join(l)
+
+    # Add title 
     ax.set_title(title)
 
-    # Mark ramp-up, plateau, ramp-down, and baseline regions
-    for phase, (color, tvec) in {
-        'ramp-up': ('g', trampup), 
-        'plateau': ('k', thigh),
-        'ramp-down': ('r', trampdown),
-        'baseline': ('dimgray', tlow)
-        }.items():
-        for i, (tstart, tend) in enumerate(tvec):
-            ax.axvspan(
-                tstart, tend, color=color, alpha=0.1, label=phase if i == 0 else None)
+    # Mark identified regions, if specified
+    if mark_regs:
+        colors_per_reg = {
+            'ramp-up': 'g',
+            'plateau': 'k',
+            'ramp-down': 'r',
+            'baseline': 'dimgray'
+        }
+        for reg, tvec in tbounds.items():
+            for i, (tstart, tend) in enumerate(tvec):
+                ax.axvspan(
+                    tstart, tend, color=colors_per_reg[reg], alpha=0.1, 
+                    label=reg if i == 0 else None)
 
     # Add legend
     ax.legend()
@@ -354,7 +427,8 @@ def plot_smoothed_waveform(tenv, yenv, Fdrive, unit='ms', ax=None, **kwargs):
     return fig
 
 
-def plot_waveform_spectrum(tenv, yenv, Fdrive, ax=None, **kwargs):
+def plot_waveform_spectrum(tenv, yenv, Fdrive, ax=None, label=None, mark_freqs=True, 
+                           title=None, get_PRF_val=False, color=None, plot=True, **kwargs):
     ''' 
     Plot a smoothed waveform from a time vector, an envelope vector and a carrier frequency.
 
@@ -362,7 +436,11 @@ def plot_waveform_spectrum(tenv, yenv, Fdrive, ax=None, **kwargs):
     :param yenv: envelope vector
     :param Fdrive: carrier frequency (Hz)
     :param ax: axis handle (default = None)
-    :return: figure handle
+    :param label: label for the plotted spectrum (default = None)
+    :param mark_freqs: flag indicating whether to mark carrier and PRF frequencies (default = True)
+    :param title: title for the plot (default = None)
+    :param get_PRF_val: flag indicating whether to compute and return the log-spectrum value (in dB) at the waveform PRF (default = False)
+    :return: figure handle (and log-spectrum value if requested)
     '''
     # Get figure and axis handles
     if ax is None:
@@ -371,28 +449,52 @@ def plot_waveform_spectrum(tenv, yenv, Fdrive, ax=None, **kwargs):
         fig = ax.get_figure()
     sns.despine(ax=ax)
 
+    # Generate label if not provided
+    if label is None:
+        label = 'spectrum'
+    
+    # Add title
+    ax.set_title('waveform spectrum' if title is None else title)
+
     # Get dense time, waveform and envelope vectors
     tdense, ydense, yenvdense = get_full_waveform(tenv, yenv, Fdrive, **kwargs)
 
     # Extract and waveform frequency spectrum
     freqs, ps = get_power_spectrum(tdense, ydense)
     ps_decibel = 10 * np.log10(ps / ps.max())
-    ax.plot(freqs, ps_decibel)
+    if plot:
+        ax.plot(freqs, ps_decibel, label=label, c=color)
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel('relative power (dB)')
     ax.set_xscale('log')
 
-    # Mark carrier frequency
-    ax.axvline(Fdrive, c='k', ls='--', label='carrier')
+    # Get number of pulses
+    tbounds = get_bounds_per_region(tdense, yenvdense)
+    nws = {k: v.shape[0] for k, v in tbounds.items()}
+    k, npulses = max(nws, key=nws.get), max(nws.values())
 
-    # In cases of multiple pulses, extract and mark PRF
-    thigh = get_continous_intervals(tdense[np.where(yenvdense == 1)])
-    if thigh.shape[0] > 1:
-        PRF = np.round(1 / (thigh[1, 0] - thigh[0, 0]), 2)  # Hz
-        ax.axvline(PRF, c='r', ls='--', label='PRF')
+    # In cases of multiple pulses, extract PRF and log-spectrum value at PRF
+    if npulses > 1:
+        logger.debug(f'identifying PRF from time difference between first 2 {k} onsets')
+        PRF = np.round(1 / (tbounds[k][1, 0] - tbounds[k][0, 0]), 2)
+        PRF_val = np.interp(PRF, freqs, ps_decibel)
+    else:
+        if get_PRF_val:
+            raise ValueError('Cannot compute PRF log-spectrum value for single-pulse waveform')
+        PRF = None
+
+    # Mark carrier and PRF frequencies, if specified
+    if mark_freqs:
+        ax.axvline(Fdrive, c='k', ls='--', label='carrier')
+        if PRF is not None:
+            ax.axvline(PRF, c='r', ls='--', label='PRF')
     
     # Add legend
-    ax.legend()
+    if plot:
+        ax.legend()
 
-    # Return figure handle
-    return fig
+    # Return figure handle (and log-spectrum value if requested)
+    if get_PRF_val:
+        return fig, PRF_val
+    else:
+        return fig
