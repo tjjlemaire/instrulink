@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-07 16:37:38
+# @Last Modified time: 2023-08-07 16:51:11
 
 ''' Initiate test sequence with Rigol waveform generator. '''
 
@@ -124,6 +124,9 @@ try:
 
     # Unlock front panel
     wg.unlock_front_panel()
+
+    # Close connection
+    wg.disconnect()
 
 except VisaError as e:
     logger.error(e)
