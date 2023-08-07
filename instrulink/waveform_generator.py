@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-04 15:55:47
+# @Last Modified time: 2023-08-07 16:14:09
 
 import abc
 import numpy as np
@@ -235,10 +235,10 @@ class WaveformGenerator(VisaInstrument):
         ''' Get the carrier signal amplitude '''
         raise NotImplementedError
     
-    def check_offset(self, offset):
+    @abc.abstractmethod
+    def check_offset(self, offset, *args, **kwargs):
         ''' Check the waveform voltage offset '''
-        if np.absolute(offset) > self.VMAX - self.get_voltage_amp() / 2:
-            raise VisaError(f'|VPP/2| + |Voffset| exceeds {self.VMAX} V')
+        raise NotImplementedError
     
     @abc.abstractmethod
     def set_waveform_offset(self, *args, **kwargs):

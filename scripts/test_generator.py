@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-04 16:05:31
+# @Last Modified time: 2023-08-07 16:37:38
 
 ''' Initiate test sequence with Rigol waveform generator. '''
 
@@ -29,6 +29,9 @@ parser.add_argument(
 parser.add_argument(
     '--igating', type=int, default=1, choices=(1, 2), help='Gating channel index')
 parser.add_argument(
+    '--gtype', default='trig', choices=('mod', 'trig'), 
+    help='Gating type, i.e. "mod" for modulation or "trig" for trigger (only if modulation period is specified)')
+parser.add_argument(
     '-s', '--source', type=str, default='int', choices=('int', 'man'), help='Trigger source (only if modulation period is specified)')
 parser.add_argument(
     '-f', '--frequency', type=float, default=Fdrive, help='Carrier frequency (Hz)')
@@ -46,7 +49,8 @@ parser.add_argument(
     '-T', type=float, default=-1., help='Modulation period (s, defaults to -1, i.e. continous looping)')
 args = parser.parse_args()
 ich_carrier = args.icarrier  # carrier channel
-ich_mod = args.igating  # gating channel
+ich_gate = args.igating  # gating channel
+gtype = args.gtype  # gating type
 trigger_source = args.source.upper()  # trigger source
 Fdrive = args.frequency  # carrier frequency (Hz)
 Vpp = args.vpp  # signal amplitude (Vpp)
@@ -62,15 +66,12 @@ try:
         # Set modulation period to None
         mod_T = None
         # If manual trigger, check that signal and gating channels are different
-        if trigger_source == 'MAN' and ich_carrier == ich_mod:
+        if trigger_source == 'MAN' and ich_carrier == ich_gate:
             raise ValueError('Signal and gating channels must be different for single burst trigger')
     # Otherwise
     else:
-        # Check that trigger source is internal
-        if trigger_source != 'INT':
-            raise ValueError('Trigger source must be internal when modulation period is specified')
         # Check that signal and gating channels are different
-        if ich_carrier == ich_mod:
+        if ich_carrier == ich_gate:
             raise ValueError('Signal and gating channels must be different when modulation period is specified')
 except ValueError as e:
     logger.error(e)
@@ -86,34 +87,40 @@ try:
         if trigger_source == 'INT':
             tburst = .01 * DC / PRF   # burst duration = pulse duration (s)
             wg.set_looping_sine_burst(
-                ich_carrier, Fdrive, Vpp=Vpp, ncycles=tburst * Fdrive, PRF=PRF, 
-                tramp=tramp, ich_trig=None if ich_mod == ich_carrier else ich_mod)
+                ich_carrier, Fdrive, Vpp=Vpp, ncycles=tburst * Fdrive, 
+                PRF=PRF, tramp=tramp, 
+                ich_trig=None if ich_gate == ich_carrier else ich_gate,
+                gate_type=gtype,
+            )
         
         # If manual trigger is used, apply single burst
         else:
             wg.set_gated_sine_burst(
                 Fdrive, Vpp, tstim, PRF, DC,
-                ich_carrier=ich_carrier, ich_mod=ich_mod,
-                trig_source=trigger_source
+                ich_carrier=ich_carrier, ich_gate=ich_gate,
+                trig_source=trigger_source,
+                tramp=tramp,
+                gate_type=gtype,
             )
             time.sleep(2)
-            wg.trigger_channel(ich_mod)
+            wg.trigger_channel(ich_gate)
     
     # If modulation period is specified
     else:
-        # Apply signal on signal channel gated/modulated by other channel
-        if tramp == 0:
-            wg.set_gated_sine_burst(
-                Fdrive, Vpp, tstim, PRF, DC,
-                ich_carrier=ich_carrier, ich_gate=ich_mod,
-                trig_source=trigger_source, T=mod_T
-            )
-        else:
-            wg.set_modulated_sine_burst(
-                Fdrive, Vpp, tstim, PRF, DC, tramp=tramp,
-                ich_carrier=ich_carrier, ich_mod=ich_mod,
-                trig_source=trigger_source, T=mod_T
-            )
+        # Apply signal on signal channel triggered/modulated by other channel
+        wg.set_gated_sine_burst(
+            Fdrive, Vpp, tstim, PRF, DC,
+            tramp=tramp,
+            ich_carrier=ich_carrier, ich_gate=ich_gate,
+            trig_source=trigger_source, T=mod_T,
+            gate_type=gtype
+        )
+        
+        # Manual trigger: set up infinite trigger loop at specified periodicity
+        if trigger_source == 'MAN':
+            while True:
+                wg.trigger_channel(ich_gate)
+                time.sleep(mod_T)
 
     # Unlock front panel
     wg.unlock_front_panel()

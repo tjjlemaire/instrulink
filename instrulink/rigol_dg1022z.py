@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-04 17:17:00
+# @Last Modified time: 2023-08-07 16:34:40
 
 import time
 import re
@@ -32,6 +32,7 @@ class RigolDG1022Z(WaveformGenerator):
     MAX_BURST_PERIOD = 500. # s
     MOD_MODES = ('AM', 'FM', 'PM', 'ASK', 'FSK', 'PSK', 'PWM')
     MOD_VOLT_RANGE = (-5, 5)  # voltage range regulating modulation (V)
+    MOD_VOLT_MARGIN = 0.05  # margin on each side to ensure full range amplitude modulation (V)
     AM_DEPTH_RANGE = (0, 120)  # AM depth range (%)
     AM_FREQ_RANGE = (2e-3, 1e6)  # AM frequency range (Hz)
     MOD_SOURCES = ('INT', 'EXT')  # modulation sources
@@ -169,10 +170,14 @@ class RigolDG1022Z(WaveformGenerator):
     def get_waveform_amp(self, ich):
         self.check_channel_index(ich)
         return float(self.query(f'SOUR{ich}:VOLT:LEV:IMM:AMPL?'))
+    
+    def check_offset(self, offset, ich):
+        if np.absolute(offset) > self.VMAX - self.get_waveform_amp(ich) / 2:
+            raise VisaError(f'|VPP/2| + |Voffset| exceeds {self.VMAX} V')
 
     def set_waveform_offset(self, ich, offset):
         self.check_channel_index(ich)
-        self.check_offset(offset)
+        self.check_offset(offset, ich)
         self.write(f'SOUR{ich}:VOLT:LEV:IMM:OFFS {offset}')
 
     def get_waveform_offset(self, ich):
@@ -875,9 +880,9 @@ class RigolDG1022Z(WaveformGenerator):
     
     # --------------------- MULTI-LAYER PULSING ---------------------
     
-    def set_gating_pulse_train(self, ich, PRF, tburst, Vpp=None, T=None, trig_source='EXT'):
+    def set_trigger_pulse_train(self, ich, PRF, tburst, Vpp=None, T=None, trig_source='EXT'):
         '''
-        Set a gating pulse train on a specific channel
+        Set a train of TTL-type trigger pulses on a specific channel
         
         :param ich: channel index
         :param PRF: pulse repetition frequency (Hz)
@@ -928,7 +933,7 @@ class RigolDG1022Z(WaveformGenerator):
         # Set channel trigger source
         self.set_trigger_source(ich, trig_source)
     
-    def set_modulating_pulse_train(self, ich, PRF, DC, tburst, tramp=0, T=None, trig_source='EXT'):
+    def set_AM_pulse_train(self, ich, PRF, DC, tburst, tramp=0, T=None, trig_source='EXT'):
         '''
         Set an amplitude modulating pulse train on a specific channel
         
@@ -941,7 +946,7 @@ class RigolDG1022Z(WaveformGenerator):
         :param trig_source: trigger source (default: external)
         '''
         # Define default log message
-        s = f'setting channel {ich} to trigger {si_format(tburst, 2)}s long modulating pulse train with {si_format(PRF, 2)}Hz internal PRF'
+        s = f'setting channel {ich} to trigger {si_format(tburst, 2)}s long amplitude-modulating pulse train with {si_format(PRF, 2)}Hz internal PRF'
 
         # Add ramping time to log message if specified
         if tramp > 0:
@@ -977,8 +982,9 @@ class RigolDG1022Z(WaveformGenerator):
             self.set_square_duty_cycle(ich, DC)  # %
             self.set_waveform_phase(ich, 180)  # set phase to 180 deg to avoid DC offset
 
-        # Set waveform amplitude to full AM range (+/- 5V)
-        self.set_waveform_amp(ich, self.MOD_VOLT_AMP)
+        # Set waveform amplitude to full AM range (with extra margin) and ensure zero offset
+        self.set_waveform_amp(ich, (1 + 2 * self.MOD_VOLT_MARGIN) * self.MOD_VOLT_AMP)
+        self.set_waveform_offset(ich, 0)
         # Apply waveform as burst with specific repetition frequency
         self.set_waveform_freq(ich, PRF)
         # Set channel trigger source to external (to avoid erroneous outputs upon setting)
@@ -993,9 +999,10 @@ class RigolDG1022Z(WaveformGenerator):
         # Set channel trigger source
         self.set_trigger_source(ich, trig_source)
 
-    def set_gated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, ich_gate=1, ich_carrier=2, **kwargs):
+    def set_triggered_sine_burst_train(self, Fdrive, Vpp, tstim, PRF, DC, ich_trig=1, ich_carrier=2, **kwargs):
         '''
-        Set sine burst on channel 2 gated by channel 1 (used for pulsed US stimulus)
+        Set a train of sine bursts on a specific channel, triggered by another channel. 
+        Used for pulsed sinusoidal waveform generation.
         
         :param Fdrive: driving frequency (Hz)
         :param Vpp: waveform amplitude (Vpp)
@@ -1006,21 +1013,20 @@ class RigolDG1022Z(WaveformGenerator):
         :param ich_carrier: index of the carrier channel
         '''
         # Check that channels indexes are different
-        if ich_gate == ich_carrier:
-            raise VisaError('gating and carrier channels cannot be identical')
+        if ich_trig == ich_carrier:
+            raise VisaError('trigger and carrier channels cannot be identical')
         
         # Disable all outputs (carrier channel first to avoid erroneous outputs)
         self.disable_output_channel(ich_carrier)
-        self.disable_output_channel(ich_gate)
+        self.disable_output_channel(ich_trig)
         
-        # Set gating channel parameters
-        self.set_gating_pulse_train(ich_gate, PRF, tstim, **kwargs)
+        # Set trigger channel parameters
+        self.set_trigger_pulse_train(ich_trig, PRF, tstim, **kwargs)
 
-        # Set sinewave channel parameters
+        # Set carrier channel parameters
         tburst = DC / (100 * PRF)  # s
-        logger.info(f'setting channel {ich_carrier} to output {si_format(tburst, 2)}s long, ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave triggered externally by channel {ich_gate}')
+        logger.info(f'setting channel {ich_carrier} to output {si_format(tburst, 2)}s long, ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave triggered externally by channel {ich_trig}')
         self.apply_sine(ich_carrier, Fdrive, Vpp)
-        self.set_trigger_source(ich_carrier, 'EXT')
         self.set_burst_duration(ich_carrier, tburst)  # s
         self.enable_burst(ich_carrier)
         self.set_trigger_source(ich_carrier, 'EXT')
@@ -1028,13 +1034,13 @@ class RigolDG1022Z(WaveformGenerator):
         # If carrier amplitude is > 0, enable all outputs 
         # (carrier channel last to avoid erroneous outputs)
         if Vpp > 0.:
-            self.enable_output_channel(ich_gate)
+            self.enable_output_channel(ich_trig)
             self.enable_output_channel(ich_carrier)
     
-    def set_modulated_sine_burst(self, Fdrive, Vpp, tstim, PRF, DC, tramp=0, ich_mod=1, ich_carrier=2, **kwargs):
+    def set_AM_sine_burst_train(self, Fdrive, Vpp, tstim, PRF, DC, tramp=0, ich_mod=1, ich_carrier=2, **kwargs):
         '''
-        Set sine burst on channel 2 amplitude modulated by channel 1.
-        Used for (smoothed) pulsed US stimulus.
+        Set a train of sine bursts on a specific channel, amplitude-modulated by another channel.
+        Used for pulsed sinusoidal waveform generation, with optional envelope smoothing.
         
         :param Fdrive: driving frequency (Hz)
         :param Vpp: waveform amplitude (Vpp)
@@ -1054,10 +1060,10 @@ class RigolDG1022Z(WaveformGenerator):
         self.disable_output_channel(ich_mod)
         
         # Set envelope modulating channel parameters
-        self.set_modulating_pulse_train(ich_mod, PRF, DC, tstim, tramp=tramp, **kwargs)
+        self.set_AM_pulse_train(ich_mod, PRF, DC, tstim, tramp=tramp, **kwargs)
 
         # Set sinewave channel parameters
-        logger.info(f'setting channel {ich_carrier} to output ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave amplitude modulated externally by channel {ich_mod}')
+        logger.info(f'setting channel {ich_carrier} to output ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave amplitude-modulated externally by channel {ich_mod}')
         self.apply_sine(ich_carrier, Fdrive, Vpp, 0)
         self.enable_am(ich_carrier)
         self.set_am_source(ich_carrier, 'EXT')
@@ -1068,7 +1074,40 @@ class RigolDG1022Z(WaveformGenerator):
             self.enable_output_channel(ich_mod)
             self.enable_output_channel(ich_carrier)
     
-    def set_looping_sine_burst(self, ich, Fdrive, Vpp=.1, ncycles=200, PRF=100., tramp=0, ich_trig=None):
+    def set_gated_sine_burst(self, *args, tramp=0, ich_gate=1, ich_carrier=2, gate_type='trig', **kwargs):
+        '''
+        Wrapper method to set up a train of sine bursts on a carrier channel, gated by
+        another channel with a specific gating method. Two gating methods are supported:
+        - "trigger" gating -> calls `set_triggered_sine_burst` method
+        - "mod" gating -> calls `set_AM_sine_burst` method
+        The "trigger" gating method is the default, but does not support envelope smoothing.
+        
+        :param tramp: nominal pulse ramping duration (s), defaults to 0
+        :param ich_gate: index of the gating channel
+        :param ich_carrier: index of the carrier channel
+        :param gate_type: gating type (default: "trigger")
+        '''
+        # Trigger gating
+        if gate_type == 'trig':
+            # Check that ramp time is 0
+            if tramp > 0:
+                raise VisaError('ramping time not supported for trigger gating')
+            # Call `set_triggered_sine_burst` method
+            self.set_triggered_sine_burst_train(
+                *args, ich_trig=ich_gate, ich_carrier=ich_carrier, **kwargs)
+        
+        # Modulation gating
+        elif gate_type == 'mod':
+            # Call `set_AM_sine_burst` method
+            self.set_AM_sine_burst_train(
+                *args, tramp=tramp, ich_mod=ich_gate, ich_carrier=ich_carrier, **kwargs)
+        
+        # Invalid gating type
+        else:
+            raise VisaError(f'invalid gating type: {gate_type}')
+    
+    def set_looping_sine_burst(self, ich, Fdrive, Vpp=.1, ncycles=200, PRF=100., tramp=0, 
+                               ich_trig=None, gate_type='trig'):
         '''
         Set an internally looping sine burst on a specific channel
         
@@ -1088,25 +1127,42 @@ class RigolDG1022Z(WaveformGenerator):
             # Compute nominal burst duration and duty cycle
             tburst = ncycles / Fdrive  # s
 
-            # If no ramp time is speficied
-            if tramp == 0:
-                # Use `set_gated_sine_burst` to set up loop
-                self.set_gated_sine_burst(
-                    Fdrive, Vpp, tburst, 1 / tburst, 100, 
-                    T=1. / PRF, ich_gate=ich_trig, ich_carrier=ich)
-                # Start trigger loop 
-                self.start_trigger_loop(ich_trig, T=1. / PRF)
+            # Compute modulation periodicity
+            mod_T = 1 / PRF  # s
 
-            # Otherwise
+            # Determine gating type
+            if gate_type not in ('trig', 'mod'):
+                raise ValueError(f'invalid gating type: {gate_type}')
+            if tramp > 0 and gate_type == 'trig':
+                logger.warning('ramping time not supported for trigger gating, switching to modulation gating')
+                gate_type = 'mod'
+
+            # Determine gate-type-dependent parameters
+            if gate_type == 'trig':
+                DC = 100  # %
+                tstim = tburst  # s
+                internal_PRF = 1 / tburst
             else:
-                # Compute DC
                 DC = PRF * tburst * 100  # %
                 if DC > 100:
                     raise ValueError(f'{si_format(tburst, 2)}s burst cannot be pulsed at {PRF:.2f} Hz')
-                # Use `set_modulated_sine_burst` to set up loop
-                self.set_modulated_sine_burst(
-                    Fdrive, Vpp, 2 / PRF, PRF, DC, tramp=tramp, 
-                    T=1. / PRF, ich_mod=ich_trig, ich_carrier=ich)
+                tstim = 2 / PRF  # s
+                internal_PRF = PRF
+
+            # Set up gated pulse train
+            self.set_gated_sine_burst(
+                Fdrive, Vpp, tstim, internal_PRF, DC, T=mod_T, 
+                tramp=tramp if gate_type == 'mod' else 0, 
+                ich_gate=ich_trig, ich_carrier=ich, gate_type=gate_type
+            )
+            
+            # Trigger mode: start trigger loop on trigger channel
+            if gate_type == 'trig':
+                self.start_trigger_loop(ich_trig, T=1. / PRF)
+            
+            # Modulation mode: disable burst mode on modulation channel to start
+            # infinite modulation loop
+            else:
                 self.disable_burst(ich_trig)
         
         # Otherwise, set up loop directly on signal channel
