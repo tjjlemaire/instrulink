@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-08 11:36:29
+# @Last Modified time: 2023-08-08 12:12:23
 
 import time
 import re
@@ -1263,6 +1263,8 @@ class RigolDG1022Z(WaveformGenerator):
         self.set_burst_duration(ich, tburst)  # s
         # Enable burst mode on channel
         self.enable_burst(ich)
+        # Enable channel sync signal on rear panel connector
+        self.enable_output_sync(ich)
         # Set channel trigger source
         self.set_trigger_source(ich, trig_source)
     
@@ -1329,6 +1331,8 @@ class RigolDG1022Z(WaveformGenerator):
         self.set_burst_duration(ich, tburst)  # s
         # Enable burst mode on channel
         self.enable_burst(ich)
+        # Enable channel sync signal on rear panel connector
+        self.enable_output_sync(ich)
         # Set channel trigger source
         self.set_trigger_source(ich, trig_source)
 
