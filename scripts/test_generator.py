@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-07 16:51:11
+# @Last Modified time: 2023-08-08 11:51:23
 
 ''' Initiate test sequence with Rigol waveform generator. '''
 
@@ -17,7 +17,7 @@ logger.setLevel(logging.INFO)
 # Default waveform parameters
 Fdrive = 1e4  # carrier frequency (Hz)
 Vpp = 0.5  # signal amplitude (Vpp)
-tstim = 100e-3  # burst duration (s)
+tstim = 200e-3  # burst duration (s)
 PRF = 100.  # burst internal PRF (Hz)
 DC = 50.  # burst internal duty cycle (%)
 tramp = 0.  # nominal pulse ramp up time (s)

@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-07 16:34:40
+# @Last Modified time: 2023-08-08 11:36:29
 
 import time
 import re
@@ -19,6 +19,7 @@ from instrulink.wf_utils import *
 
 class RigolDG1022Z(WaveformGenerator):
 
+    # Miscellaneous
     USB_ID = 'DG1ZA\d+'  # USB identifier
     NO_ERROR_CODE = '0,"No error"'  # error code returned when no error
     ANGLE_UNITS = ('DEG')
@@ -26,27 +27,45 @@ class RigolDG1022Z(WaveformGenerator):
     WAVEFORM_TYPES = ('SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER')
     FMAX = 25e6  # max frequency (Hz)
     VMAX = 20.0  # max voltage (Vpp)
+    CHANNELS = (1, 2)
+    PREFIX = ':'
+    # TIMEOUT_SECONDS = 20.  # long timeout to allow slow commands (e.g. waveform loading)
+
+    # Coupling
+    CPL_PATTERN = '^FREQ:(ON|OFF),PHASE:(ON|OFF),AMPL:(ON|OFF)$'
+    CPL_MODES = ('OFFS', 'RAT')  # coupling modes
+    CPL_AMP_RATIO_BOUNDS = (1e-3, 1e3)  # bounds for amplitude coupling ratio
+    CPL_AMP_DEV_BOUNDS = (-19.998, 19.998)  # bounds for amplitude coupling deviation
+    CPL_FREQ_RATIO_BOUNDS = (1e-6, 1e6)  # bounds for frequency coupling ratio
+    CPL_FREQ_DEV_BOUNDS = (-0.99 * FMAX, 0.99 * FMAX)  # bounds for frequency coupling deviation
+    CPL_PHASE_RATIO_BOUNDS = (1e-2, 1e2)  # bounds for phase coupling ratio
+    CPL_PHASE_DEV_BOUNDS = (-360, 360)  # bounds for phase coupling deviation
+
+    # Bursting
     BURST_MODES = ('TRIG', 'INF', 'GAT')
     BURST_IDLE_LEVELS = ('FPT', 'TOP', 'CENTER', 'BOTTOM')
     PULSE_HOLDS = ('WIDT', 'DUTY')
     MAX_BURST_PERIOD = 500. # s
+
+    # Modulation
     MOD_MODES = ('AM', 'FM', 'PM', 'ASK', 'FSK', 'PSK', 'PWM')
     MOD_VOLT_RANGE = (-5, 5)  # voltage range regulating modulation (V)
-    MOD_VOLT_MARGIN = 0.05  # margin on each side to ensure full range amplitude modulation (V)
+    MOD_VOLT_MARGIN = 0.0#5  # margin on each side to ensure full range amplitude modulation (V)
     AM_DEPTH_RANGE = (0, 120)  # AM depth range (%)
     AM_FREQ_RANGE = (2e-3, 1e6)  # AM frequency range (Hz)
     MOD_SOURCES = ('INT', 'EXT')  # modulation sources
+
+    # Trigger
     TRIGGER_SOURCES = ('INT', 'EXT', 'MAN')
+
+    # Arbitrary waveform
     ARB_OUTPUT_MODES = ('FREQ', 'SRATE')
     ARB_SRATE_BOUNDS = (1e-6, 60e6)  # bounds for arbitrary waveform sample rate (Hz)
     ARB_WF_NPTS_BOUNDS = (8, 16384)  # bounds for arbitrary waveform number of points
     ARB_WF_MAXNPTS_PER_PACKET = 8192  # max number of points per packet for arbitrary waveform upload
     ARB_WF_DAC_RANGE = (0, 16383)  # integer range for arbitrary waveform DAC values
     ARB_WF_FLOAT_RANGE = (-1, 1)  # floating point range for arbitrary waveform values
-    CHANNELS = (1, 2)
-    PREFIX = ':'
     WAF_PATTERN = '^(ARB)(10?|[2-9])$'
-    # TIMEOUT_SECONDS = 20.  # long timeout to allow slow commands (e.g. waveform loading)
 
     def beep(self):
         ''' Issue a single beep immediately. '''
@@ -113,6 +132,320 @@ class RigolDG1022Z(WaveformGenerator):
         time.sleep(1)
         self.disable_output()
     
+    # --------------------- SYNC ---------------------
+    
+    def enable_output_sync(self, ich):
+        ''' Enable sync signal of specific channel on rear panel connector '''
+        self.check_channel_index(ich)
+        self.write(f'OUTP{ich}:SYNC ON')
+    
+    def disable_output_sync(self, ich):
+        ''' Disable sync signal of specific channel on rear panel connector '''
+        self.check_channel_index(ich)
+        self.write(f'OUTP{ich}:SYNC OFF')
+    
+    def is_output_sync_on(self, ich):
+        ''' Query whether sync signal is enabled for a specific channel '''
+        self.check_channel_index(ich)
+        out = self.query(f'OUTP{ich}:SYNC?')
+        return out == 'ON'
+
+    def set_output_sync_delay(self, ich, delay):
+        ''' 
+        Set sync signal delay for a specific channel 
+
+        :param ich: channel index
+        :param delay: delay (s)
+        '''
+        self.check_channel_index(ich)
+        T = 1 / self.get_waveform_freq(ich)
+        if not is_within(delay, (0, T)):
+            raise VisaError(f'invalid delay: {delay} (must be within [0, 1/f = {si_format(T, 2)}s])')
+        self.write(f'OUTP{ich}:SYNC:DEL {delay}')
+    
+    def get_output_sync_delay(self, ich):
+        ''' 
+        Get sync signal delay for a specific channel 
+
+        :param ich: channel index
+        :return: delay (s)
+        '''
+        self.check_channel_index(ich)
+        return float(self.query(f'OUTP{ich}:SYNC:DEL?'))
+    
+    def set_output_sync_polarity(self, ich, pol):
+        ''' 
+        Set sync signal polarity for a specific channel 
+
+        :param ich: channel index
+        :param pol: polarity ("POS" or "NEG")
+        '''
+        self.check_channel_index(ich)
+        if pol not in self.SLOPES:
+            raise VisaError(f'invalid polarity: "{pol}" (must be in {self.SLOPES})')
+        self.write(f'OUTP{ich}:SYNC:POL {pol}')
+
+    def get_output_sync_polarity(self, ich):
+        ''' 
+        Get sync signal polarity for a specific channel 
+
+        :param ich: channel index
+        :return: polarity ("POS" or "NEG")
+        '''
+        self.check_channel_index(ich)
+        return self.query(f'OUTP{ich}:SYNC:POL?')
+
+    # --------------------- COUPLING ---------------------
+
+    def enable_all_coupling(self):
+        ''' 
+        Enable frequency, phase and amplitude coupling across channels.
+        '''
+        self.write('COUP ON')
+    
+    def disable_all_coupling(self):
+        ''' 
+        Disable frequency, phase and amplitude coupling across channels.
+        '''
+        self.write('COUP OFF')
+    
+    def is_coupling_on(self):
+        ''' 
+        Query whether frequency, phase and amplitude coupling across channels are enabled.
+
+        :return: dictionary of coupling states
+        '''
+        out = self.query('COUP?')
+        mo = re.match(self.CPL_PATTERN, out)
+        if mo is None:
+            raise VisaError(f'invalid coupling query response: "{out}"')
+        cplstates = dict(zip(('FREQ', 'PHASE', 'AMPL'), mo.groups()))
+        return {k: v == 'ON' for k, v in cplstates.items()}
+
+    # --------------------- AMPLITUDE COUPLING ---------------------
+
+    def enable_amplitude_coupling(self):
+        ''' 
+        Enable amplitude coupling across channels.
+        '''
+        self.write('COUP:AMPL ON')
+    
+    def disable_amplitude_coupling(self):
+        ''' 
+        Disable amplitude coupling across channels.
+        '''
+        self.write('COUP:AMPL OFF')
+    
+    def is_amplitude_coupling_on(self):
+        ''' 
+        Query whether amplitude coupling across channels is enabled.
+
+        :return: boolean
+        '''
+        return self.query('COUP:AMPL?') == 'ON'
+
+    def set_amplitude_coupling_mode(self, mode):
+        ''' 
+        Set amplitude coupling mode across channels.
+
+        :param mode: amplitude coupling ("OFFS" for deviation or "RAT" for ratio)
+        '''
+        if mode not in self.CPL_MODES:
+            raise VisaError(f'invalid amplitude coupling mode: "{mode}" (must be one of {self.CPL_MODES})')
+        self.write(f'COUP:AMPL:MODE {mode}')
+    
+    def get_amplitude_coupling_mode(self):
+        ''' 
+        Get amplitude coupling mode across channels.
+
+        :return: amplitude coupling mode
+        '''
+        return self.query('COUP:AMPL:MODE?')
+
+    def set_amplitude_coupling_ratio(self, ratio):
+        ''' 
+        Set amplitude coupling ratio across channels.
+
+        :param ratio: amplitude coupling ratio
+        '''
+        if not is_within(ratio, self.CPL_AMP_RATIO_BOUNDS):
+            raise VisaError(f'invalid amplitude coupling ratio: "{ratio}" (must be within {self.CPL_AMP_RATIO_BOUNDS})')
+        self.write(f'COUP:AMPL:RAT {ratio}')
+    
+    def get_amplitude_coupling_ratio(self):
+        ''' 
+        Get amplitude coupling ratio across channels.
+
+        :return: amplitude coupling ratio
+        '''
+        return float(self.query('COUP:AMPL:RAT?'))
+
+    def set_amplitude_coupling_deviation(self, deviation):
+        ''' 
+        Set amplitude coupling deviation across channels.
+
+        :param deviation: amplitude coupling deviation
+        '''
+        if not is_within(deviation, self.CPL_AMP_DEV_BOUNDS):
+            raise VisaError(f'invalid amplitude coupling deviation: "{deviation}" (must be within {self.CPL_AMP_DEV_BOUNDS})')
+        self.write(f'COUP:AMPL:DEV {deviation}')
+    
+    def get_amplitude_coupling_deviation(self):
+        ''' 
+        Get amplitude coupling deviation across channels.
+
+        :return: amplitude coupling deviation
+        '''
+        return float(self.query('COUP:AMPL:DEV?'))
+    
+    # --------------------- FREQUENCY COUPLING ---------------------
+
+    def enable_frequency_coupling(self):
+        ''' 
+        Enable frequency coupling across channels.
+        '''
+        self.write('COUP:FREQ ON')
+
+    def disable_frequency_coupling(self):
+        ''' 
+        Disable frequency coupling across channels.
+        '''
+        self.write('COUP:FREQ OFF')
+
+    def is_frequency_coupling_on(self):
+        '''
+        Query whether frequency coupling across channels is enabled.
+        '''
+        return self.query('COUP:FREQ?') == 'ON'
+
+    def set_frequency_coupling_mode(self, mode):
+        ''' 
+        Set frequency coupling mode across channels.
+
+        :param mode: frequency coupling ("OFFS" for deviation or "RAT" for ratio)
+        '''
+        if mode not in self.CPL_MODES:
+            raise VisaError(f'invalid frequency coupling mode: "{mode}" (must be one of {self.CPL_MODES})')
+        self.write(f'COUP:FREQ:MODE {mode}')
+    
+    def get_frequency_coupling_mode(self):
+        ''' 
+        Get frequency coupling mode across channels.
+
+        :return: frequency coupling mode
+        '''
+        return self.query('COUP:FREQ:MODE?')
+
+    def set_frequency_coupling_ratio(self, ratio):
+        ''' 
+        Set frequency coupling ratio across channels.
+
+        :param ratio: frequency coupling ratio
+        '''
+        if not is_within(ratio, self.CPL_FREQ_RATIO_BOUNDS):
+            raise VisaError(f'invalid frequency coupling ratio: "{ratio}" (must be within {self.CPL_FREQ_RATIO_BOUNDS})')
+        self.write(f'COUP:FREQ:RAT {ratio}')
+    
+    def get_frequency_coupling_ratio(self):
+        ''' 
+        Get frequency coupling ratio across channels.
+
+        :return: frequency coupling ratio
+        '''
+        return float(self.query('COUP:FREQ:RAT?'))
+
+    def set_frequency_coupling_deviation(self, deviation):
+        ''' 
+        Set frequency coupling deviation across channels.
+
+        :param deviation: frequency coupling deviation
+        '''
+        if not is_within(deviation, self.CPL_FREQ_DEV_BOUNDS):
+            raise VisaError(f'invalid frequency coupling deviation: "{deviation}" (must be within {self.CPL_FREQ_DEV_BOUNDS})')
+        self.write(f'COUP:FREQ:DEV {deviation}')
+
+    def get_frequency_coupling_deviation(self):
+        ''' 
+        Get frequency coupling deviation across channels.
+
+        :return: frequency coupling deviation
+        '''
+        return float(self.query('COUP:FREQ:DEV?'))
+
+    # --------------------- PHASE COUPLING ---------------------
+
+    def enable_phase_coupling(self):
+        ''' 
+        Enable phase coupling across channels.
+        '''
+        self.write('COUP:PHAS ON')
+    
+    def disable_phase_coupling(self):
+        ''' 
+        Disable phase coupling across channels.
+        '''
+        self.write('COUP:PHAS OFF')
+    
+    def is_phase_coupling_on(self):
+        '''
+        Query whether phase coupling across channels is enabled.
+        '''
+        return self.query('COUP:PHAS?') == 'ON'
+
+    def set_phase_coupling_mode(self, mode):
+        ''' 
+        Set phase coupling mode across channels.
+
+        :param mode: phase coupling ("OFFS" for deviation or "RAT" for ratio)
+        '''
+        if mode not in self.CPL_MODES:
+            raise VisaError(f'invalid phase coupling mode: "{mode}" (must be one of {self.CPL_MODES})')
+        self.write(f'COUP:PHAS:MODE {mode}')
+    
+    def get_phase_coupling_mode(self):
+        ''' 
+        Get phase coupling mode across channels.
+
+        :return: phase coupling mode
+        '''
+        return self.query('COUP:PHAS:MODE?')
+    
+    def set_phase_coupling_ratio(self, ratio):
+        ''' 
+        Set phase coupling ratio across channels.
+
+        :param ratio: phase coupling ratio
+        '''
+        if not is_within(ratio, self.CPL_PHASE_RATIO_BOUNDS):
+            raise VisaError(f'invalid phase coupling ratio: "{ratio}" (must be within {self.CPL_PHASE_RATIO_BOUNDS})')
+        self.write(f'COUP:PHAS:RAT {ratio}')
+    
+    def get_phase_coupling_ratio(self):
+        ''' 
+        Get phase coupling ratio across channels.
+
+        :return: phase coupling ratio
+        '''
+        return float(self.query('COUP:PHAS:RAT?'))
+    
+    def set_phase_coupling_deviation(self, deviation):
+        ''' 
+        Set phase coupling deviation across channels.
+
+        :param deviation: phase coupling deviation
+        '''
+        if not is_within(deviation, self.CPL_PHASE_DEV_BOUNDS):
+            raise VisaError(f'invalid phase coupling deviation: "{deviation}" (must be within {self.CPL_PHASE_DEV_BOUNDS})')
+        self.write(f'COUP:PHAS:DEV {deviation}')
+    
+    def get_phase_coupling_deviation(self):
+        ''' 
+        Get phase coupling deviation across channels.
+
+        :return: phase coupling deviation
+        '''
+        return float(self.query('COUP:PHAS:DEV?'))
+
     # --------------------- BASIC WAVEFORM ---------------------
 
     def apply_waveform(self, wtype, ich, freq, amp, offset=0, phase=0):
