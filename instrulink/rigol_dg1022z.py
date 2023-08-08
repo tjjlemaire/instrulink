@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-08 12:38:05
+# @Last Modified time: 2023-08-08 15:17:25
 
 import time
 import re
@@ -51,7 +51,7 @@ class RigolDG1022Z(WaveformGenerator):
     # Modulation
     MOD_MODES = ('AM', 'FM', 'PM', 'ASK', 'FSK', 'PSK', 'PWM')
     MOD_VOLT_RANGE = (-5, 5)  # voltage range regulating modulation (V)
-    MOD_VOLT_MARGIN = 0.0#5  # margin on each side to ensure full range amplitude modulation (V)
+    MOD_VOLT_MARGIN = 0.05  # margin on each side to ensure full range amplitude modulation (V)
     AM_DEPTH_RANGE = (0, 120)  # AM depth range (%)
     AM_FREQ_RANGE = (2e-3, 1e6)  # AM frequency range (Hz)
     MOD_SOURCES = ('INT', 'EXT')  # modulation sources
@@ -1470,6 +1470,8 @@ class RigolDG1022Z(WaveformGenerator):
         '''
         # Cast number of cycles to integer
         ncycles = int(np.round(ncycles))
+        if ncycles < 1:
+            raise VisaError(f'invalid number of cycles: {ncycles} (must be >= 1)')
 
         # If trigger channel is different than signal channel
         if ich_trig is not None:
