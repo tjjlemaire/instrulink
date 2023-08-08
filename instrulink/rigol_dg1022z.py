@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-08 12:12:23
+# @Last Modified time: 2023-08-08 12:38:05
 
 import time
 import re
@@ -27,6 +27,7 @@ class RigolDG1022Z(WaveformGenerator):
     WAVEFORM_TYPES = ('SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER')
     FMAX = 25e6  # max frequency (Hz)
     VMAX = 20.0  # max voltage (Vpp)
+    ANTIPHASE = 180  # degrees
     CHANNELS = (1, 2)
     PREFIX = ':'
     # TIMEOUT_SECONDS = 20.  # long timeout to allow slow commands (e.g. waveform loading)
@@ -525,6 +526,14 @@ class RigolDG1022Z(WaveformGenerator):
     def get_waveform_phase(self, ich):
         self.check_channel_index(ich)
         return float(self.query(f'SOUR{ich}:PHAS?'))  # degrees
+
+    def invert_waveform_phase(self, ich):
+        ''' Invert the phase of the waveform of the specified channel. '''
+        self.set_waveform_phase(ich, self.ANTIPHASE)
+    
+    def is_waveform_phase_inverted(self, ich):
+        ''' Query whether the phase of the waveform of the specified channel is inverted. '''
+        return self.get_waveform_phase(ich) == self.ANTIPHASE
     
     def set_square_duty_cycle(self, ich, DC):
         self.check_channel_index(ich)
@@ -1315,7 +1324,7 @@ class RigolDG1022Z(WaveformGenerator):
             # Use standard rectangular pulse with specific duty cycle
             self.set_waveform_type(ich, 'SQU')
             self.set_square_duty_cycle(ich, DC)  # %
-            self.set_waveform_phase(ich, 180)  # set phase to 180 deg to avoid DC offset
+            self.invert_waveform_phase(ich)  # invert phase to avoid DC offset
 
         # Set waveform amplitude to full AM range (with extra margin) and ensure zero offset
         self.set_waveform_amp(ich, (1 + 2 * self.MOD_VOLT_MARGIN) * self.MOD_VOLT_AMP)
@@ -1333,6 +1342,9 @@ class RigolDG1022Z(WaveformGenerator):
         self.enable_burst(ich)
         # Enable channel sync signal on rear panel connector
         self.enable_output_sync(ich)
+        # If waveform is phase-inverted, set sync polarity to negative
+        if self.is_waveform_phase_inverted(ich):
+            self.set_output_sync_polarity(ich, 'NEG')
         # Set channel trigger source
         self.set_trigger_source(ich, trig_source)
 

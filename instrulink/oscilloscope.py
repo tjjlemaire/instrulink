@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-07 17:14:31
+# @Last Modified time: 2023-08-08 12:39:13
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -468,18 +468,12 @@ class Oscilloscope(VisaInstrument):
         if trig_detect is None:
            trig_detect = TTL_PAMP / 2
         
-        if isinstance(trig_detect, (tuple, list, np.ndarray)):
-            trig_vscale = np.ptp(trig_detect)
-            trig_detect = np.mean(trig_detect)
-        else:
-            trig_vscale = trig_detect
-        
         # Set vertical scale on signal channel
         self.set_vertical_scale(ich_signal, vscale)
 
         # Set vertical scale & trigger level on trigger channel, if any
         if ich_trigger is not None:
-            self.set_vertical_scale(ich_trigger, trig_vscale)
+            self.set_vertical_scale(ich_trigger, trig_detect)
             self.set_trigger_level(ich_trigger, trig_detect)
 
         # Set trigger source to appropriate channel
