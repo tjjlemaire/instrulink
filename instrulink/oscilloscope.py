@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-08 12:39:13
+# @Last Modified time: 2024-05-07 16:14:19
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -259,6 +259,15 @@ class Oscilloscope(VisaInstrument):
     def set_trigger_mode(self, value):
         ''' Set trigger mode '''
         raise NotImplementedError
+    
+    @abc.abstractmethod 
+    def set_single_trigger(self):
+        ''' Set trigger mode to single acquisition '''
+        raise NotImplementedError
+
+    def set_normal_trigger(self):
+        ''' Set trigger mode to normal '''
+        self.set_trigger_mode('NORM')
 
     @abc.abstractmethod
     def get_trigger_coupling_mode(self, *args, **kwargs):
@@ -455,27 +464,39 @@ class Oscilloscope(VisaInstrument):
     
     # --------------------- MULTI-CHANNEL SETTING ---------------------
 
-    def set_multichannel_vscale(self, vscale, ich_signal, ich_trigger=None, trig_detect=None):
+    def set_multichannel_vscale(self, vscales):
         ''' 
-        Set scope vertical scale and trigger settings 
+        Set vertical scales on multiple channels
         
-        :param vdiv: vertical scale of signal channel (V/div)
-        :param ich_signal: signal channel index
-        :param ich_trigger: trigger channel index (optional)
-        :param trig_detect: trigger detection amplitude (defaults to TTL_PAMP / 2)
+        :param vscales: dictionary of (channel index: vertical scale) pairs. 
+            Vertical scales should be provided in (V/div). If "TRIG" is provided 
+            instead of a vertical scale, the channel vertical scale and trigger settings
+            will be automatically adjusted to detect the default TTL pulse amplitude, and 
+            the trigger soruce will be set to this channel. If no "TRIG" is provided, the
+            first channel with a non-"TRIG" vertical scale will be set as the trigger source. 
         '''
-        # Set trigger detection amplitude if not specified
-        if trig_detect is None:
-           trig_detect = TTL_PAMP / 2
-        
-        # Set vertical scale on signal channel
-        self.set_vertical_scale(ich_signal, vscale)
+        # Set "is_trigger_source_set" flag to False
+        is_trigger_source_set = False
 
-        # Set vertical scale & trigger level on trigger channel, if any
-        if ich_trigger is not None:
-            self.set_vertical_scale(ich_trigger, trig_detect)
-            self.set_trigger_level(ich_trigger, trig_detect)
+        # Loop over all input channels
+        for ich, vscale in vscales.items():
+            
+            # If vscale is 'TRIG', set detection level to TTL / 2 and 
+            # set trigger source to this channel
+            if isinstance(vscale, str):
+                if vscale.upper() == 'TRIG':
+                    vscale = TTL_PAMP // 2
+                    self.set_trigger_level(ich, vscale)
+                    self.set_trigger_source(ich)
+                    is_trigger_source_set = True
+                else:
+                    raise VisaError(f'invalid vscale value: {vscale}')
 
-        # Set trigger source to appropriate channel
-        self.set_trigger_source(ich_trigger if ich_trigger is not None else ich_signal)
-        
+            # Otherwise, if trigger source is not set, assign it to this channel 
+            elif not is_trigger_source_set:
+                self.set_trigger_source(ich)
+                is_trigger_source_set = True
+
+            # In any case, set the vertical scale
+            self.set_vertical_scale(ich, vscale)
+

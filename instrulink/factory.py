@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2023-05-10 23:09:28
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-17 15:13:14
+# @Last Modified time: 2023-10-03 09:54:40
 
 from .rigol_dg1022z import RigolDG1022Z
 from .rigol_ds1054z import RigolDS1054Z

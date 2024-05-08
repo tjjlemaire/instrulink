@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 16:57:22
+# @Last Modified time: 2024-05-07 15:24:58
 
 import abc
 import pyvisa
@@ -194,6 +194,10 @@ class VisaInstrument(metaclass=abc.ABCMeta):
     def timeout(self, value):
         ''' Set I/O operations timeout paramerer (in ms) '''
         self.instrument_handle.timeout = value
+    
+    def log(self, msg):
+        ''' Log a message prefixed with with class name '''
+        logger.info(f'{self.__class__.__name__}: {msg}')
 
     # --------------------- I/O PROCESSING ---------------------
 

@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 17:31:16
+# @Last Modified time: 2024-05-07 15:28:02
 # @Last Modified time: 2022-04-08 21:17:22
 
 import struct
@@ -133,16 +133,16 @@ class RigolDS1054Z(Oscilloscope):
         # Query image
         self.write('DISP:DATA? ON,OFF,PNG')
         # Extract image buffer
-        logger.info('Receiving screen capture...')
+        self.log('Receiving screen capture...')
         buff = self.read_raw() #self.DISPLAY_DATA_BYTES)
-        logger.info(f'read {len(buff)} bytes in .display_data')
+        self.log(f'read {len(buff)} bytes in .display_data')
         return self.decode_ieee_block(buff)
 
     # --------------------- SCALES / OFFSETS ---------------------
 
     def auto_setup(self):
         ''' Perform auto-setup. '''
-        logger.info('running scope auto-setup...')
+        self.log('running auto-setup...')
         self.write('AUT')
 
     def set_temporal_scale(self, value):
@@ -150,7 +150,7 @@ class RigolDS1054Z(Oscilloscope):
         # If not in set, replace with closest valid number (in log-distance)
         if value not in self.TDIVS:
             value = self.TDIVS[np.abs(np.log(self.TDIVS) - np.log(value)).argmin()]
-        logger.info(f'setting time scale to {si_format(value, 2)}s/div')
+        self.log(f'setting time scale to {si_format(value, 2)}s/div')
         self.write(f'TIM:MAIN:SCAL {value}')
     
     def get_temporal_scale(self):
@@ -165,7 +165,7 @@ class RigolDS1054Z(Oscilloscope):
             logger.warning(
                 f'target vertical scale ({value} V/div) above instrument limit ({self.MAX_VDIV} V/div) -> restricting')
             value = self.MAX_VDIV
-        logger.info(f'setting channel {ich} vertical scale to {si_format(value, 2)}V/div')
+        self.log(f'setting channel {ich} vertical scale to {si_format(value, 2)}V/div')
         self.write(f'CHAN{ich}:SCAL {value}')
 
     def get_vertical_scale(self, ich):
@@ -283,7 +283,7 @@ class RigolDS1054Z(Oscilloscope):
         if value not in self.COUPLING_MODES:
             raise VisaError(
                 f'invalid coupling mode: {value} (candidates are {self.COUPLING_MODES})')
-        logger.info(f'setting channel {ich} coupling mode to {value}')
+        self.log(f'setting channel {ich} coupling mode to {value}')
         self.write(f'CHAN{ich}:COUP {value}')
 
     # --------------------- TRIGGER ---------------------
@@ -299,6 +299,10 @@ class RigolDS1054Z(Oscilloscope):
             raise VisaError(
                 f'{value} not a valid trigger mode (candidates are {self.TRIGGER_MODES})')
         self.write(f'TRIG:SWE {value}')
+    
+    def set_single_trigger(self):
+        ''' Set trigger mode to single '''
+        self.set_trigger_mode('SING')
     
     def get_trigger_coupling_mode(self, ich):
         ''' Get the trigger coupling mode. '''
@@ -368,7 +372,7 @@ class RigolDS1054Z(Oscilloscope):
     def set_trigger_source(self, ich):
         ''' Set trigger source channel index '''
         self.check_channel_index(ich)
-        logger.info(f'setting trigger source to channel {ich}')
+        self.log(f'setting trigger source to channel {ich}')
         ttype = self.get_trigger_type()
         self.write(f'TRIG:{ttype}:SOUR CHAN{ich}')
     
@@ -388,7 +392,7 @@ class RigolDS1054Z(Oscilloscope):
             raise VisaError(
                 f'{value} not a valid trigger slope (candidates are {self.TRIGGER_SLOPES})')
         ttype = self.get_trigger_type()
-        logger.info(f'setting {ttype} trigger slope to {value}')
+        self.log(f'setting {ttype} trigger slope to {value}')
         self.write(f'TRIG:{ttype}:SLOP {value}')
     
     def get_trigger_level(self, ich):
@@ -413,7 +417,7 @@ class RigolDS1054Z(Oscilloscope):
     def set_trigger_delay(self, value):
         ''' Set the trigger delay (in s) '''
         self.check_trigger_delay(value)
-        logger.info(f'setting trigger time delay to {si_format(value, 2)}s')
+        self.log(f'setting trigger time delay to {si_format(value, 2)}s')
         self.write(f'TIM:MAIN:OFFS {value}')
 
     def force_trigger(self):
@@ -664,7 +668,7 @@ class RigolDS1054Z(Oscilloscope):
 
             # Increment position
             pos += self.MAX_BYTE_LEN
-            logger.info(f'waveform acquisition: fetched {len(buff)}/{npts} points from internal memory')
+            self.log(f'waveform acquisition: fetched {len(buff)}/{npts} points from internal memory')
         
         # Return waveform bytes
         return buff

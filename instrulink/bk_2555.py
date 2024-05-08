@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 17:26:57
+# @Last Modified time: 2024-05-07 15:26:41
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -188,7 +188,7 @@ class BK2555(Oscilloscope):
 
     def auto_setup(self):
         ''' Perform auto-setup. '''
-        logger.info('running oscilloscope auto-setup...')
+        self.log('running auto-setup...')
         self.write('ASET')
 
     def set_temporal_scale(self, value):
@@ -196,7 +196,7 @@ class BK2555(Oscilloscope):
         # If not in set, replace with closest valid number (in log-distance)
         if value not in self.TDIVS:
             value = self.TDIVS[np.abs(np.log(self.TDIVS) - np.log(value)).argmin()]
-        logger.info(f'setting time scale to {si_format(value, 2)}s/div')
+        self.log(f'setting time scale to {si_format(value, 2)}s/div')
         self.write(f'TDIV {self.si_process(value)}S')
     
     def get_temporal_scale(self):
@@ -211,7 +211,7 @@ class BK2555(Oscilloscope):
             logger.warning(
                 f'target vertical scale ({value} V/div) above instrument limit ({self.MAX_VDIV} V/div) -> restricting')
             value = self.MAX_VDIV
-        logger.info(f'setting channel {ich} vertical scale to {si_format(value, 2)}V/div')
+        self.log(f'setting channel {ich} vertical scale to {si_format(value, 2)}V/div')
         self.write(f'C{ich}: VDIV {self.si_process(value)}V')
 
     def get_vertical_scale(self, ich):
@@ -224,7 +224,7 @@ class BK2555(Oscilloscope):
     def set_vertical_offset(self, ich, value):
         ''' Set the vertical offset of the specified channel (in V) '''
         self.check_channel_index(ich)
-        logger.info(f'setting channel {ich} vertical offset to {si_format(value, 2)}V/div')
+        self.log(f'setting channel {ich} vertical offset to {si_format(value, 2)}V/div')
         self.write(f'C{ich}: OFST {self.si_process(value)}V')
 
     def get_vertical_offset(self, ich):
@@ -298,7 +298,7 @@ class BK2555(Oscilloscope):
         fdict = {'flow': flow, 'fhigh': fhigh}
         fdict = {k: v for k, v in fdict.items() if v is not None}
         fstr = ', '.join([f'{k} = {si_format(f, 1)}Hz' for k, f in fdict.items()])
-        logger.info(f'setting {ftype} filter on channel {ich} with {fstr}')
+        self.log(f'setting {ftype} filter on channel {ich} with {fstr}')
         # Generate instruction code
         s = f'C{ich}:FILTS TYPE,{ftype}'
         if flow is not None:
@@ -338,7 +338,7 @@ class BK2555(Oscilloscope):
     def set_probe_attenuation(self, ich, value):
         ''' Set the vertical attenuation factor of a specific channel '''
         self.check_channel_index(ich)
-        logger.info(f'setting channel {ich} probe attenuation factor to {value}')
+        self.log(f'setting channel {ich} probe attenuation factor to {value}')
         self.write(f'C{ich}:ATTN {value}')
 
     def get_coupling_mode(self, ich):
@@ -353,7 +353,7 @@ class BK2555(Oscilloscope):
         if value not in self.COUPLING_MODES:
             raise VisaError(
                 f'invalid coupling mode: {value} (candidates are {self.COUPLING_MODES})')
-        logger.info(f'setting channel {ich} coupling mode to {value}')
+        self.log(f'setting channel {ich} coupling mode to {value}')
         self.write(f'C{ich}: CPL {value}')
 
     # --------------------- CURSORS ---------------------
@@ -442,6 +442,10 @@ class BK2555(Oscilloscope):
                 f'{value} not a valid trigger mode (candidates are {self.TRIGGER_MODES})')
         self.write(f'TRMD {value}')
     
+    def set_single_trigger(self):
+        ''' Set trigger mode to single '''
+        self.set_trigger_mode('SINGLE')
+    
     def get_trigger_coupling_mode(self, ich):
         ''' Get the trigger coupling of the selected source. '''
         self.check_channel_index(ich)
@@ -474,7 +478,7 @@ class BK2555(Oscilloscope):
     def set_trigger_source(self, ich):
         ''' Set trigger source channel index '''
         self.check_channel_index(ich)
-        logger.info(f'setting trigger source to channel {ich}')
+        self.log(f'setting trigger source to channel {ich}')
         ttype = self.get_trigger_type()
         self.write(f'TRSE {ttype},SR,C{ich}')
     
@@ -491,7 +495,7 @@ class BK2555(Oscilloscope):
         if value not in self.TRIGGER_SLOPES:
             raise VisaError(
                 f'{value} not a valid trigger slope (candidates are {self.TRIGGER_SLOPES})')
-        logger.info(f'setting channel {ich} trigger slope to {value}')
+        self.log(f'setting channel {ich} trigger slope to {value}')
         self.write(f'C{ich}: TRSL {value}')
 
     def get_trigger_level(self, ich):
@@ -504,7 +508,7 @@ class BK2555(Oscilloscope):
     def set_trigger_level(self, ich, value):
         ''' Set the trigger level of the specified trigger source (in V) '''
         self.check_channel_index(ich)
-        logger.info(f'setting channel {ich} trigger level to {si_format(value, 2)}V')
+        self.log(f'setting channel {ich} trigger level to {si_format(value, 2)}V')
         self.write(f'C{ich}:TRLV {self.si_process(value)}V')
 
     def set_trigger_halfamp(self):
@@ -522,7 +526,7 @@ class BK2555(Oscilloscope):
     def set_trigger_delay(self, value):
         ''' Set trigger delay (in s) '''
         value = self.check_trigger_delay(value)
-        logger.info(f'setting trigger time delay to {si_format(value, 2)}s')
+        self.log(f'setting trigger time delay to {si_format(value, 2)}s')
         self.write(f'TRDL {self.si_process(value)}S')
 
     def get_trigger_options(self):

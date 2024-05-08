@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2021-02-18 18:05:57
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-22 09:52:23
+# @Last Modified time: 2024-05-07 15:28:38
 
 from .visa_instrument import VisaError
 from .waveform_generator import *
@@ -179,19 +179,19 @@ class Keysight33500B(WaveformGenerator):
         self.set_trigger_slope('POS')
 
     def single_pulse(self):
-        logger.info('sending single pulse...')
+        self.log('sending single pulse...')
         self.set_trigger_source('BUS')
         self.enable_output()
         self.trigger()
         self.wait()
     
     def wait_for_external_trigger(self):
-        logger.info('waiting for external trigger...')
+        self.log('waiting for external trigger...')
         self.set_trigger_source('EXT')
         self.enable_output()
     
     def wait_for_manual_trigger(self):
-        logger.info('waiting for external trigger...')
+        self.log('waiting for external trigger...')
         self.set_trigger_source('MAN')
         self.enable_output()
 

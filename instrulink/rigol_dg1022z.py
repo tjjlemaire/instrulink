@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-09 17:12:00
+# @Last Modified time: 2024-05-07 15:42:08
 
 import time
 import re
@@ -728,7 +728,7 @@ class RigolDG1022Z(WaveformGenerator):
             raise VisaError(f'invalid waveform size: {y.size} (must be within {self.ARB_WF_NPTS_BOUNDS})')
         
         # Log
-        logger.info(f'uploading {y.size}-points arbitrary waveform into volatile memory')
+        self.log(f'uploading {y.size}-points arbitrary waveform into volatile memory')
 
         # Normalize vector to appropriate range
         if dtype in ('dac', 'dac16'):
@@ -839,7 +839,7 @@ class RigolDG1022Z(WaveformGenerator):
         self.check_channel_index(ich)
 
         # # Variant 1: binary transfer by packet (currently not working)
-        # logger.info(f'querying waveform vector from channel {ich} volatile memory')
+        # self.log(f'querying waveform vector from channel {ich} volatile memory')
         # npackages = int(self.query(f'SOUR{ich}:DATA:LOAD? VOLATILE'))
         # data = []
         # for i in range(npackages):
@@ -852,7 +852,7 @@ class RigolDG1022Z(WaveformGenerator):
         # # Variant 2: query waveform data, point by point (currently not working)
         # npts = self.get_waveform_npoints(ich)
         # data = np.zeros(npts, dtype=int)
-        # logger.info(f'querying {npts}-points waveform vector from channel {ich} volatile memory')
+        # self.log(f'querying {npts}-points waveform vector from channel {ich} volatile memory')
         # for idx in tqdm(range(npts)):
         #     val = self.query(f'SOUR{ich}:DATA:VAL? VOLATILE,{idx + 1}')
         #     self.check_error()
@@ -1172,14 +1172,14 @@ class RigolDG1022Z(WaveformGenerator):
     def wait_for_external_trigger(self, ich):
         ''' Set up channel to wait for external trigger. '''
         self.check_channel_index(ich)
-        logger.info(f'waiting for external trigger on channel {ich}...')
+        self.log(f'waiting for external trigger on channel {ich}...')
         self.set_trigger_source(ich, 'EXT')
         self.enable_output_channel(ich)
     
     def wait_for_manual_trigger(self, ich):
         ''' Set up channel to wait for manual trigger. '''
         self.check_channel_index(ich)
-        logger.info(f'waiting for manual/programmatic trigger on channel {ich}...')
+        self.log(f'waiting for manual/programmatic trigger on channel {ich}...')
         self.set_trigger_source(ich, 'MAN')
         self.enable_output_channel(ich)
 
@@ -1205,7 +1205,7 @@ class RigolDG1022Z(WaveformGenerator):
     def trigger_channel(self, ich):
         ''' Trigger specific channel programmatically. '''
         self.check_channel_index(ich)
-        logger.info(f'triggering channel {ich} programmatically')
+        self.log(f'triggering channel {ich} programmatically')
         self.write(f'SOUR{ich}:BURS:TRIG:IMM')
         self.wait()
 
@@ -1238,7 +1238,7 @@ class RigolDG1022Z(WaveformGenerator):
 
         # Set default pulse amplitude if not specified
         if Vpp is None:
-            Vpp = TTL_PAMP / MV_TO_V
+            Vpp = TTL_PAMP  # V
         else:
             s = f'{s}, {si_format(Vpp, 2)}Vpp'
 
@@ -1255,7 +1255,7 @@ class RigolDG1022Z(WaveformGenerator):
             raise ValueError(f'invalid trigger source: {trig_source}')
         
         # Log process
-        logger.info(s)
+        self.log(s)
         
         # Apply pulse with specific frequency, amplitude and offset
         self.apply_pulse(ich, PRF, Vpp, offset=Vpp / 2.)
@@ -1309,7 +1309,7 @@ class RigolDG1022Z(WaveformGenerator):
             raise ValueError(f'invalid trigger source: {trig_source}')
         
         # Log process
-        logger.info(s)
+        self.log(s)
 
         # If ramping time is specified
         if tramp > 0:
@@ -1374,7 +1374,7 @@ class RigolDG1022Z(WaveformGenerator):
 
         # Set carrier channel parameters
         tburst = DC / (100 * PRF)  # s
-        logger.info(f'setting channel {ich_carrier} to output {si_format(tburst, 2)}s long, ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave triggered externally by channel {ich_trig}')
+        self.log(f'setting channel {ich_carrier} to output {si_format(tburst, 2)}s long, ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave triggered externally by channel {ich_trig}')
         self.apply_sine(ich_carrier, Fdrive, Vpp)
         self.set_burst_duration(ich_carrier, tburst)  # s
         self.enable_burst(ich_carrier)
@@ -1412,7 +1412,7 @@ class RigolDG1022Z(WaveformGenerator):
         self.set_AM_pulse_train(ich_mod, PRF, DC, tstim, tramp=tramp, **kwargs)
 
         # Set sinewave channel parameters
-        logger.info(f'setting channel {ich_carrier} to output ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave amplitude-modulated externally by channel {ich_mod}')
+        self.log(f'setting channel {ich_carrier} to output ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave amplitude-modulated externally by channel {ich_mod}')
         self.apply_sine(ich_carrier, Fdrive, Vpp, 0)
         self.enable_am(ich_carrier)
         self.set_am_source(ich_carrier, 'EXT')
@@ -1528,7 +1528,7 @@ class RigolDG1022Z(WaveformGenerator):
                 f'{si_format(Vpp, 3)}Vpp', 
                 f'{ncycles} cycles'
             ])
-            logger.info(f'setting ({params_str}) sine wave looping at {PRF:.1f} Hz on channel {ich}')
+            self.log(f'setting ({params_str}) sine wave looping at {PRF:.1f} Hz on channel {ich}')
             
             # Disable all outputs
             self.disable_output_channel(ich)

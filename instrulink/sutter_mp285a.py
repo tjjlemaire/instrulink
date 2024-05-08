@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-11 16:03:27
+# @Last Modified time: 2024-05-07 15:31:12
 
 import serial
 import struct
@@ -133,6 +133,10 @@ class SutterMP285A:
     # def __del__(self):
     #     logger.info(f'releasing {repr(self)} resource')
     #     self.instrument_handle.close() 
+
+    def log(self, msg):
+        ''' Log a message prefixed with with class name '''
+        logger.info(f'{self.__class__.__name__}: {msg}')
 
     def get_name(self):
         ''' Get controller name '''
@@ -313,7 +317,7 @@ class SutterMP285A:
                 f'increasing velocity temporarily to {vreq} um/s to cover {dtot:.2f} um within {self.TREL_MAX * 1e2:.0f} % of {self.timeout} s timeout')
             self.set_velocity(vreq)
         if not silent:
-            logger.info(f'moving to position: {self.pos_str(pos)} (delta = {self.pos_str(delta)})')
+            self.log(f'moving to position: {self.pos_str(pos)} (delta = {self.pos_str(delta)})')
         bpos = self.encode_position(pos, prefix='m')  # encode position to bytes
         tmove = time.perf_counter()
         self.write_and_check(bpos, convert_to_bytes=False)  # send position to controller
@@ -332,7 +336,7 @@ class SutterMP285A:
     def move_to_origin(self):
         ''' Move to origin '''
         self.set_position([0., 0., 0.])
-        logger.info('moved to origin!')
+        self.log('moved to origin!')
     
     def translate(self, v, **kwargs):
         '''
@@ -395,7 +399,7 @@ class SutterMP285A:
         if not is_within(v, vbounds):
             raise SutterError(
                 f'velocity value ({v} um/s) is out of specific bounds ({vbounds} um/s)')
-        logger.info(f'setting velocity to {v} um/s')
+        self.log(f'setting velocity to {v} um/s')
         self.encode_velocity_and_resolution(v, res)
         vout = self.get_velocity()
         if vout != v:
@@ -408,7 +412,7 @@ class SutterMP285A:
     
     def set_resolution(self, res):
         ''' Set controller motion resolution (0 for low or 1 for high) '''
-        logger.info(f'setting motion mode to {self.res_str(res)}')
+        self.log(f'setting motion mode to {self.res_str(res)}')
         self.encode_velocity_and_resolution(self.get_velocity(), res)
         resout = self.get_resolution()
         if resout != res:
@@ -421,7 +425,7 @@ class SutterMP285A:
     def set_origin(self):
         ''' Set origin of the coordinate system to the current position '''
         self.write_and_check('o')
-        logger.info('origin reset!')
+        self.log('origin reset!')
     
     def reset(self):
         ''' Reset controller '''
@@ -429,10 +433,10 @@ class SutterMP285A:
     
     def set_absolute_mode(self):
         ''' Set the movement mode to absolute '''
-        logger.info('setting absolute movement mode')
+        self.log('setting absolute movement mode')
         self.write_and_check('a')
     
     def set_relative_mode(self):
         ''' Set the movement mode to relative '''
-        logger.info('setting relative movement mode')
+        self.log('setting relative movement mode')
         self.write_and_check('b')
