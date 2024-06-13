@@ -12,13 +12,13 @@ This python package provides built-in classes to interface diverse laboratory in
 To interface VISA instruments (i.e., waveforms generators and oscilloscopes), you will need to:
 - Download and install [IVI Compliance Package 21.0](https://www.ni.com/en-us/support/downloads/drivers/download.ivi-compliance-package.html#460618)
   When installing, opt to include .NET Adapters and COM adapters as well (these are not selected by default)
-- Download and install the [NI Package Manager](https://www.ni.com/en-us/support/downloads/software-products/download.package-manager.html#322516). Through the NI package manager, also install the NI-VISA Driver.
+- Download and install the [NI-VISA Package Manager](https://www.ni.com/en-us/support/downloads/software-products/download.package-manager.html). Through the NI package manager, also install the NI-VISA driver. You can also download the driver directly from [this link](https://www.ni.com/en/support/downloads/drivers/download.ni-visa.html) and install it on its own if you prefer.
 
-To interface Rigol instruments specifically, you will also need to download and install the associated [Rigol driver](https://www.rigolna.com/products/waveform-generators/dg1000z/)
+To interface Rigol instruments specifically, you may also need to download and install the associated [Rigol driver](https://www.rigolna.com/products/waveform-generators/dg1000z/)
 
 To interface FLIR cameras, you will need to download and install the [FlyCapture SDK](https://www.flir.com/products/flycapture-sdk/)
 
-You will also need to install `Python 3.6` (for compliance with FlyCapture SDK), preferably as part of an environment manager such as [Anaconda](https://www.anaconda.com/products/individual).
+You will also need to install `Python` (for compliance with FlyCapture SDK, use `Python 3.6`), preferably as part of an environment manager such as [Anaconda](https://www.anaconda.com/products/individual).
 
 ## Installation
 
