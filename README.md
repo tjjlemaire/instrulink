@@ -4,7 +4,7 @@ This python package provides built-in classes to interface diverse laboratory in
 - **waveform generators**: [Rigol DG 1022Z](https://www.rigolna.com/products/waveform-generators/dg1000z/) (`RigolDG1022Z`)
 - **oscilloscopes**: [B&K Precision 2555](https://www.bkprecision.com/products/oscilloscopes/2555) (`BK2555`), [Rigol DS 1054Z](https://www.rigolna.com/products/digital-oscilloscopes/1000z/) (`RigolDS1054Z`)
 - **micro-manipulators**: [Sutter Instruments MP-285A](https://www.sutter.com/MICROMANIPULATION/mp285_frame.html) (`SutterMP285A`)
-- **infrared cameras**: FLIR cameras (`Camera`)
+- **infrared cameras**: [FLIR cameras](https://www.flir.com/browse/industrial/machine-vision-cameras/) (`Camera`)
 - **acquisition systems**: [NI DAQmx](https://www.ni.com/docs/en-US/bundle/ni-daqmx/page/daqhelp/nidaqoverview.html) for pulse triggers
 
 ## Software dependencies
@@ -24,9 +24,11 @@ You will also need to install `Python 3.6` (for compliance with FlyCapture SDK),
 
 This package can be directly installed from PyPI:
 
-```pip install instrulink```
+```
+pip install instrulink
+```
 
-However, if you wish to amend the package code, you can also clone this repo and install it locally as an editable package: 
+However, if you wish to edit the code base, you can also clone this repo and install it locally as an editable package: 
 
 ```
 git clone https://github.com/tjjlemaire/instrulink.git
@@ -43,3 +45,7 @@ Instruments can be easily connected to via generic `grab_camera`, `grab_generato
 ### Using instruments
 
 Example scripts are located in the `/scripts` subfolder.
+
+## Authors
+
+This package is written and maintained by [Theo Lemaire](mailto:theo.lemaire1@gmail.com). 
