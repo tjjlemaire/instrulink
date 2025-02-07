@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2024-05-07 15:28:02
+# @Last Modified time: 2025-02-07 14:50:41
 # @Last Modified time: 2022-04-08 21:17:22
 
 import struct
@@ -26,6 +26,7 @@ class RigolDS1054Z(Oscilloscope):
     NVDIVS = 8  # Number of vertical divisions
     NO_ERROR_CODE = '0,"No error"'  # error code returned when no error
     MAX_VDIV = 10.  # Max voltage per division (V)
+    MIN_VDIV = 1e-3  # Min voltage per division (V)
     VUNITS = ('VOLT', 'WATT', 'AMP', 'UNKN') # vertical units
     TBASES = [1, 2, 5]  # timebase relative values
     TFACTORS = np.logspace(-9, 1, 11)  # timebase multiplying factors

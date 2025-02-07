@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2024-05-07 15:26:41
+# @Last Modified time: 2025-02-07 12:05:32
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -25,6 +25,7 @@ class BK2555(Oscilloscope):
     NHDIVS = 18  # Number of horizontal divisions
     NVDIVS = 8  # Number of vertical divisions
     NO_ERROR_CODE = 'CMR 0'  # error code returned when no error
+    MIN_VDIV = 2e-3  # Min voltage per division (V)
     MAX_VDIV = 5.  # Max voltage per division (V)
     TBASES = [1, 2.5, 5]  # timebase relative values
     TFACTORS = np.logspace(-9, 1, 11)  # timebase multiplying factors

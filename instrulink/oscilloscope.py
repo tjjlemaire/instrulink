@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2024-05-07 16:14:19
+# @Last Modified time: 2025-02-07 16:52:21
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -44,6 +44,12 @@ class Oscilloscope(VisaInstrument):
     def MAX_VDIV(self):
         ''' Max voltage per division (V) '''
         raise NotImplementedError
+    
+    @property
+    @abc.abstractmethod
+    def MIN_VDIV(self):
+        ''' Min voltage per division (V) '''
+        return NotImplementedError
     
     @property
     @abc.abstractmethod
@@ -189,6 +195,53 @@ class Oscilloscope(VisaInstrument):
     def get_vertical_scale(self, ich):
         ''' Get the vertical sensitivity of the specified channel (in V/div) '''
         raise NotImplementedError
+    
+    def get_vertical_range(self, ich):
+        ''' Get vertical display range at current vertical scale (in V) '''
+        return self.get_vertical_scale(ich) * self.NVDIVS
+    
+    def get_target_vertical_scale(self, ich, value, target_yrel=0.7, max_yrel=0.9):
+        '''
+        Determine target vertical scale (in V/div) division to accurately acquire a signal of specific amplitude
+        
+        :param ich: channel index
+        :param value: target signal amplitude (in V)
+        :param target_yrel: target relative amplitude for signal (default: 70% of full scale)
+        :param max_yrel: maximum relative amplitude for signal (default: 90% of full scale)
+        '''
+        # Compute peak-to-peak range from signal amplitude
+        p2pval = 2 * value
+        # Get current vertical scale and peak-to-peak vertical range of oscilloscope
+        vscale = self.get_vertical_scale(ich)
+        vrange = self.get_vertical_range(ich)
+        # Compute fraction of vertical range taken by signal
+        p2pfrac = p2pval / vrange
+        # If fraction exceeds max allowed fraction, double vertical scale
+        if p2pfrac > max_yrel:
+            logger.warning(f'target signal amplitude ({value:.3f} V) takes more than {max_yrel * 1e2:.0f} % of current vertical range ({vrange:.3f} V)')
+            target_vscale = vscale * 2
+        # Otherwise, adjust vertical scale to match target fraction
+        else:
+            target_vscale = vscale * p2pfrac / target_yrel
+        # Clip output to valid range
+        return np.clip(
+            target_vscale, 
+            self.MIN_VDIV, self.MAX_VDIV)
+
+    def adjust_vertical_scale(self, ich, value, rtol=.1, **kwargs):
+        '''
+        Adjust vertical scale to accurately acquire a signal of specific amplitude
+        
+        :param ich: channel index
+        :param value: target signal amplitude (in V)
+        :param rtol: relative tolerance for vertical scale adjustment
+        '''
+        target_vdiv = self.get_target_vertical_scale(ich, value, **kwargs)
+        vdiv_ratio = target_vdiv / self.get_vertical_scale(ich)
+        if not (1 - rtol) < vdiv_ratio < (1 + rtol):
+            logger.info(f'adjusting scope vertical range to detected signal amplitude ({value:.3f} V) -> vdiv = {target_vdiv:.3f} V/div')
+            self.set_vertical_scale(ich, target_vdiv)
+        return self.get_vertical_scale(ich)
 
     @abc.abstractmethod
     def set_vertical_offset(self, ich, value):
