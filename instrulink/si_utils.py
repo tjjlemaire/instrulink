@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 19:21:50
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-08-15 09:59:04
+# @Last Modified time: 2025-02-21 11:17:57
 
 import numpy as np
 import operator
@@ -51,7 +51,7 @@ def get_SI_pair(x, scale='lin', unit_dim=1):
 
 def si_format(x, precision=0, space=' ', **kwargs):
     ''' Format a float according to the SI unit system, with the appropriate prefix letter. '''
-    if isinstance(x, float) or isinstance(x, int) or isinstance(x, np.float) or\
+    if isinstance(x, float) or isinstance(x, int) or\
        isinstance(x, np.int32) or isinstance(x, np.int64):
         factor, prefix = get_SI_pair(x, **kwargs)
         return f'{x / factor:.{precision}f}{space}{prefix}'
