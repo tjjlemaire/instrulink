@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-02-07 16:52:21
+# @Last Modified time: 2025-03-21 17:41:59
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -187,7 +187,7 @@ class Oscilloscope(VisaInstrument):
         return self.get_temporal_scale() * self.NHDIVS
     
     @abc.abstractmethod
-    def set_vertical_scale(self, ich, value):
+    def set_vertical_scale(self, ich, value, verbose=True):
         ''' Set the vertical sensitivity of the specified channel (in V/div) '''
         raise NotImplementedError
 
@@ -239,8 +239,8 @@ class Oscilloscope(VisaInstrument):
         target_vdiv = self.get_target_vertical_scale(ich, value, **kwargs)
         vdiv_ratio = target_vdiv / self.get_vertical_scale(ich)
         if not (1 - rtol) < vdiv_ratio < (1 + rtol):
-            logger.info(f'adjusting scope vertical range to detected signal amplitude ({value:.3f} V) -> vdiv = {target_vdiv:.3f} V/div')
-            self.set_vertical_scale(ich, target_vdiv)
+            self.log(f'adjusting channel {ich} vertical range to detected signal amplitude ({value:.3f} V) -> vdiv = {target_vdiv:.3f} V/div')
+            self.set_vertical_scale(ich, target_vdiv, verbose=False)
         return self.get_vertical_scale(ich)
 
     @abc.abstractmethod

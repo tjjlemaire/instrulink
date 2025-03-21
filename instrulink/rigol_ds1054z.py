@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-02-07 14:50:41
+# @Last Modified time: 2025-03-21 17:42:40
 # @Last Modified time: 2022-04-08 21:17:22
 
 import struct
@@ -159,14 +159,15 @@ class RigolDS1054Z(Oscilloscope):
         out = self.query('TIM:MAIN:SCAL?')
         return float(out)
     
-    def set_vertical_scale(self, ich, value):
+    def set_vertical_scale(self, ich, value, verbose=True):
         ''' Set the vertical sensitivity of the specified channel (in V/div) '''
         self.check_channel_index(ich)
         if value > self.MAX_VDIV:
             logger.warning(
                 f'target vertical scale ({value} V/div) above instrument limit ({self.MAX_VDIV} V/div) -> restricting')
             value = self.MAX_VDIV
-        self.log(f'setting channel {ich} vertical scale to {si_format(value, 2)}V/div')
+        if verbose:
+            self.log(f'setting channel {ich} vertical scale to {si_format(value, 2)}V/div')
         self.write(f'CHAN{ich}:SCAL {value}')
 
     def get_vertical_scale(self, ich):
