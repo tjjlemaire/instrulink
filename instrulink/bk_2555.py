@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-03-21 17:42:26
+# @Last Modified time: 2025-03-24 16:16:45
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -197,6 +197,7 @@ class BK2555(Oscilloscope):
         # If not in set, replace with closest valid number (in log-distance)
         if value not in self.TDIVS:
             value = self.TDIVS[np.abs(np.log(self.TDIVS) - np.log(value)).argmin()]
+            value *= 1.00001  # add a small offset to offset floating point errors (scope will adjust down if not exact value)
         self.log(f'setting time scale to {si_format(value, 2)}s/div')
         self.write(f'TDIV {self.si_process(value)}S')
     
@@ -292,11 +293,17 @@ class BK2555(Oscilloscope):
         tdiv = self.get_temporal_scale()  # s/div
         flims = np.asarray(self.FILTER_REL_LIMS) / tdiv  # Hz
         flims_str = ' - '.join([f'{si_format(f, 1)}Hz' for f in flims])
-        for k, f in {'flow': flow, 'fhigh': fhigh}.items():
+        fdict = {'flow': flow, 'fhigh': fhigh}
+        for k, f in fdict.items():
             if f is not None:
                 if not is_within (f, flims):
-                    raise VisaError(
-                        f'{k} value ({si_format(f, 1)}Hz) outside of frequency limits ({flims_str}) with current temporal scale ({si_format(tdiv, 1)}s/div)')
+                    errstr = f'{k} value ({si_format(f, 1)}Hz) outside of frequency limits ({flims_str}) with current temporal scale ({si_format(tdiv, 1)}s/div).'
+                    if f < flims[0]:
+                        fdict[k] = flims[0]
+                    elif f > flims[1]:
+                        fdict[k] = flims[1]
+                    logger.warning(errstr + f' Setting to closest limit: {si_format(fdict[k], 1)}Hz')
+                    
         fdict = {'flow': flow, 'fhigh': fhigh}
         fdict = {k: v for k, v in fdict.items() if v is not None}
         fstr = ', '.join([f'{k} = {si_format(f, 1)}Hz' for k, f in fdict.items()])
