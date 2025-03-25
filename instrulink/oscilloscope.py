@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-03-21 17:41:59
+# @Last Modified time: 2025-03-25 13:58:44
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -18,6 +18,8 @@ from .visa_instrument import *
 
 class Oscilloscope(VisaInstrument):
     ''' Base class for oscilloscopes. '''
+
+    TIMEOUT_SECONDS = 5. # 20.  # long timeout to allow slow commands (e.g. auto-setup)
     
     # --------------------- REQUIRED ATTRIBUTES ---------------------
     

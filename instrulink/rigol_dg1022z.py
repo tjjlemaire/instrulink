@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2024-05-07 15:42:08
+# @Last Modified time: 2025-03-25 13:59:06
 
 import time
 import re
@@ -30,7 +30,6 @@ class RigolDG1022Z(WaveformGenerator):
     ANTIPHASE = 180  # degrees
     CHANNELS = (1, 2)
     PREFIX = ':'
-    # TIMEOUT_SECONDS = 20.  # long timeout to allow slow commands (e.g. waveform loading)
 
     # Coupling
     CPL_PATTERN = '^FREQ:(ON|OFF),PHASE:(ON|OFF),AMPL:(ON|OFF)$'

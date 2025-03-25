@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2024-05-07 15:31:12
+# @Last Modified time: 2025-03-25 14:53:51
 
 import serial
 import struct
@@ -29,7 +29,7 @@ class SutterMP285A:
     XYZ_FMT = 'lll'
     XYZ_LEN = 12  # length (in bytes) of XYZ position
     XYZ_BOUNDS = (-12500, 12500)  # Bounds for XYZ coordinates (um)
-    XYZ_TOL = 0.5  # XYZ tolerance (um)
+    XYZ_TOL = 1.0  # XYZ tolerance (um)
     TREL_MAX = 0.7  # maximal relative move duration w.r.t. timeout duration
     TREL_WARN = 1.8  # critical relative move duration w.r.t. estimate above which to throw a warning
     LOW_RES_SPEED_BOUNDS = (0, 3000)  # Coarse mode travel speed bounds (um/s)
@@ -75,18 +75,20 @@ class SutterMP285A:
     ]
     BIT15 = 2**15  # Bit 15 position value
 
-    def __init__(self, timeout=10., lock=False):
+    def __init__(self, timeout=10., resolution='low', lock=False):
         '''
         Initialization
 
         :param timeout: commands timeout (s)
+        :param resolution: motion resolution ('low' = 0.2 um, 'high' = 0.04 um)
         :param lock: whether to lock the instrument during motion (not implemented)
         '''
         self.connect()
         self.timeout = timeout
         self.set_absolute_mode()
         self.update_status()
-        self.set_resolution(1)
+        rescode = {'low': 0, 'high': 1}[resolution]
+        self.set_resolution(rescode)
         self.set_velocity(self.HIGH_RES_SPEED_BOUNDS[1])
     
     def __repr__(self):
@@ -325,8 +327,9 @@ class SutterMP285A:
         # Check that target position has been reached
         new_pos = self.get_position()
         new_delta = pos - new_pos
-        if np.sum(np.abs(new_delta)) > self.XYZ_TOL:
-            raise SutterError(f'could not reach target position {self.pos_str(pos)} (value = {self.pos_str(new_pos)})')
+        d = np.linalg.norm(new_delta)
+        if d > self.XYZ_TOL:
+            raise SutterError(f'could not reach target position {self.pos_str(pos)} (value = {self.pos_str(new_pos)}, delta = {d:.3f} um)')
         if tmove > max(50e-3, self.TREL_WARN * tmove_est):
             logger.warning(f'{delta} move took {tmove * 1e3:.3f} ms ({tmove / tmove_est:.2f} times expected time)')
         if vreq is not None:

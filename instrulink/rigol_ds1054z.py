@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-03-21 17:42:40
+# @Last Modified time: 2025-03-25 13:58:58
 # @Last Modified time: 2022-04-08 21:17:22
 
 import struct
@@ -20,7 +20,6 @@ class RigolDS1054Z(Oscilloscope):
     # General parameters
     USB_ID = 'DS1ZA\d+' # USB identifier
     PREFIX = ':'  # prefix to be added to each command
-    TIMEOUT_SECONDS = 20.  # long timeout to allow slow commands (e.g. auto-setup)
     CHANNELS = (1, 2, 3, 4)  # available channels
     NHDIVS = 12  # Number of horizontal divisions
     NVDIVS = 8  # Number of vertical divisions

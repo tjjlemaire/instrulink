@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-07 16:14:09
+# @Last Modified time: 2025-03-25 13:59:28
 
 import abc
 import numpy as np
@@ -17,6 +17,7 @@ class WaveformGenerator(VisaInstrument):
     SLOPES = ('POS', 'NEG')
     POLARITIES = ('NORM', 'INV') 
     VOLTAGE_UNITS = ('VPP', 'VRMS', 'DBM')
+    TIMEOUT_SECONDS = 3.  # 20.  # long timeout to allow slow commands (e.g. waveform loading)
     
     # --------------------- MISCELLANEOUS ---------------------
     
