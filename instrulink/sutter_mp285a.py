@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-03-27 11:36:09
+# @Last Modified time: 2025-03-27 14:07:22
 
 import serial
 import struct
@@ -89,7 +89,11 @@ class SutterMP285A:
         self.update_status()
         rescode = {'low': 0, 'high': 1}[resolution]
         self.set_resolution(rescode)
-        self.set_velocity(self.get_vbounds(rescode)[1])
+        vmax = self.get_vbounds(rescode)[1]
+
+        # Set maximum velocity to 2000 um/s if higher (to avoid cumulative errors)
+        vmax = min(vmax, 2000)
+        self.set_velocity(vmax)
     
     def __repr__(self):
         ''' String representation '''
@@ -299,32 +303,44 @@ class SutterMP285A:
         if pos.size != 3:
             raise SutterError('input position must be of length 3')
         self.check_coordinates(dict(zip('XYZ', pos)))
+
         # Compute delta to target
         current_pos = self.get_position()
         delta = pos - current_pos
         dtot = np.linalg.norm(delta)
+
         # If total distance is zero (no delta), return
         if dtot == 0:
             logger.warning('already at position!')
             return
+
         # Check if velocity will allow to move there before timeout
         v = self.get_velocity()  # um/s
         tmove_est = dtot / v # s
-        # If not, check required speed to achieve it in percentage of timeout
-        tcr = self.TREL_MAX * self.timeout
-        vreq = None
+
+        # If not, check required speed to achieve it in percentage of timeout, 
+        # and set it temporarily if possible
         if tmove_est > self.timeout:
+            tcr = self.TREL_MAX * self.timeout
             vreq = int(np.round(dtot / tcr))
+            vmax = self.get_vbounds(self.get_resolution())[1]
+            if vreq > vmax:
+                raise SutterError(f'required velocity {vreq} um/s exceeds max velocity in {self.res_str} mode ({vmax} um/s)')
             logger.warning(
                 f'increasing velocity temporarily to {vreq} um/s to cover {dtot:.2f} um within {self.TREL_MAX * 1e2:.0f} % of {self.timeout} s timeout')
             self.set_velocity(vreq)
+        else:
+            vreq = None
+
+        # Move to position and compute actual move time
         if not silent:
             self.log(f'moving to position: {self.pos_str(pos)} (delta = {self.pos_str(delta)})')
         bpos = self.encode_position(pos, prefix='m')  # encode position to bytes
         tmove = time.perf_counter()
         self.write_and_check(bpos, convert_to_bytes=False)  # send position to controller
         tmove = time.perf_counter() - tmove
-        # Check that target position has been reached
+
+        # Check that target position has been reached in expected time
         new_pos = self.get_position()
         new_delta = pos - new_pos
         d = np.linalg.norm(new_delta)
@@ -332,6 +348,8 @@ class SutterMP285A:
             raise SutterError(f'could not reach target position {self.pos_str(pos)} (value = {self.pos_str(new_pos)}, delta = {d:.3f} um)')
         if tmove > max(50e-3, self.TREL_WARN * tmove_est):
             logger.warning(f'{delta} move took {tmove * 1e3:.3f} ms ({tmove / tmove_est:.2f} times expected time)')
+        
+        # If velocity was changed, reset it to the pre-move value
         if vreq is not None:
             logger.warning(f'resetting velocity to {v} um/s')
             self.set_velocity(v)
