@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-03-25 14:53:51
+# @Last Modified time: 2025-03-27 11:36:09
 
 import serial
 import struct
@@ -89,7 +89,7 @@ class SutterMP285A:
         self.update_status()
         rescode = {'low': 0, 'high': 1}[resolution]
         self.set_resolution(rescode)
-        self.set_velocity(self.HIGH_RES_SPEED_BOUNDS[1])
+        self.set_velocity(self.get_vbounds(rescode)[1])
     
     def __repr__(self):
         ''' String representation '''
