@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-03-27 14:07:22
+# @Last Modified time: 2025-03-27 17:45:09
 
 import serial
 import struct
@@ -32,7 +32,7 @@ class SutterMP285A:
     XYZ_TOL = 1.0  # XYZ tolerance (um)
     TREL_MAX = 0.7  # maximal relative move duration w.r.t. timeout duration
     TREL_WARN = 1.8  # critical relative move duration w.r.t. estimate above which to throw a warning
-    LOW_RES_SPEED_BOUNDS = (0, 3000)  # Coarse mode travel speed bounds (um/s)
+    LOW_RES_SPEED_BOUNDS = (0, 2500)  # Coarse mode travel speed bounds (um/s). Upper bound is fixed below theoretical maximum (3000 um/s) to avoid cumulative errors
     HIGH_RES_SPEED_BOUNDS = (0, 1310)  # Fine mode travel speed bounds (um/s)
     STATUS_LEN = 32  # length (in bytes) of status information
     STATUS_FIELDS = {
@@ -89,11 +89,7 @@ class SutterMP285A:
         self.update_status()
         rescode = {'low': 0, 'high': 1}[resolution]
         self.set_resolution(rescode)
-        vmax = self.get_vbounds(rescode)[1]
-
-        # Set maximum velocity to 2000 um/s if higher (to avoid cumulative errors)
-        vmax = min(vmax, 2000)
-        self.set_velocity(vmax)
+        self.set_velocity(self.get_vbounds(rescode)[1])
     
     def __repr__(self):
         ''' String representation '''
