@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-03-25 13:58:44
+# @Last Modified time: 2025-03-30 17:13:16
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -230,7 +230,7 @@ class Oscilloscope(VisaInstrument):
             target_vscale, 
             self.MIN_VDIV, self.MAX_VDIV)
 
-    def adjust_vertical_scale(self, ich, value, rtol=.1, **kwargs):
+    def adjust_vertical_scale(self, ich, value, rtol=.15, **kwargs):
         '''
         Adjust vertical scale to accurately acquire a signal of specific amplitude
         
