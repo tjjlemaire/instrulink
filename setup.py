@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2017-06-13 09:40:02
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2024-06-13 13:06:13
+# @Last Modified time: 2025-04-28 14:42:56
 
 import os
 from setuptools import setup
@@ -25,7 +25,7 @@ def getFiles(path):
 
 setup(
     name='instrulink',
-    version='1.0.5',
+    version='1.0.6',
     description='Python package to interface diverse laboratory instruments',
     long_description_content_type='text/markdown',
     long_description=readme(),
