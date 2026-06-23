@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-04-03 16:03:47
+# @Last Modified time: 2026-06-23 12:18:10
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -408,10 +408,15 @@ class Oscilloscope(VisaInstrument):
     # --------------------- ACQUISITION ---------------------
     
     @abc.abstractmethod
-    def arm_acquisition(self):
+    def arm_single(self):
+        ''' Arm the oscilloscope for a single acquisition. '''
+        raise NotImplementedError
+    
+    def wait_for_acquisition(self, timeout=None, **kwargs):
         '''
-        Enables the signal acquisition process by changing the acquisition state
-        (trigger mode) from "stopped" to "single".
+        Wait for acquisition to be completed.
+        
+        :param timeout: query timeout (in seconds). If None, use instrument default timeout.
         '''
         raise NotImplementedError
     

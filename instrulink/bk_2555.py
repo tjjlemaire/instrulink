@@ -2,11 +2,12 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-03-25 13:58:53
+# @Last Modified time: 2026-06-12 15:09:17
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
 import struct
+from pyvisa.errors import VisaIOError
 
 from .constants import *
 from .si_utils import *
@@ -557,12 +558,29 @@ class BK2555(Oscilloscope):
     
     # --------------------- ACQUISITION ---------------------
     
-    def arm_acquisition(self):
-        '''
-        Enables the signal acquisition process by changing the acquisition state
-        (trigger mode) from "stopped" to "single".
-        '''
+    def arm_single(self):
+        ''' Arm the oscilloscope for a single acquisition. '''
         self.write('ARM')
+
+    def wait_for_acquisition(self, timeout=None):
+        '''
+        Wait for acquisition to be completed.
+        
+        :param timeout: query timeout (in seconds). If None, use instrument default timeout.
+        '''
+        # If timeout is specified, set instrument timeout to specified value and reset after query
+        if timeout is not None:
+            ref_timeout = self.timeout
+            self.timeout = timeout
+        # Query instrument for operation complete (which will be sent after trigger event is detected and acquisition is done)
+        try:
+            self.query('*OPC?')
+        except VisaIOError as e:
+            raise VisaError(f'error while waiting for acquisition completion: {e}')
+        # Reset instrument timeout to reference value
+        finally:
+            if timeout is not None:
+                self.timeout = ref_timeout
 
     def get_interpolation_type(self):
         ''' Get the type of waveform interpolation (linear or sine) '''

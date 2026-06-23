@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-08-08 11:51:23
+# @Last Modified time: 2026-06-11 14:38:20
 
 ''' Initiate test sequence with Rigol waveform generator. '''
 
@@ -95,7 +95,7 @@ try:
         
         # If manual trigger is used, apply single burst
         else:
-            wg.set_gated_sine_burst(
+            wg.set_sine_burst_train(
                 Fdrive, Vpp, tstim, PRF, DC,
                 ich_carrier=ich_carrier, ich_gate=ich_gate,
                 trig_source=trigger_source,
@@ -108,7 +108,7 @@ try:
     # If modulation period is specified
     else:
         # Apply signal on signal channel triggered/modulated by other channel
-        wg.set_gated_sine_burst(
+        wg.set_sine_burst_train(
             Fdrive, Vpp, tstim, PRF, DC,
             tramp=tramp,
             ich_carrier=ich_carrier, ich_gate=ich_gate,

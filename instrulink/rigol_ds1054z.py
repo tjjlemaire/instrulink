@@ -2,10 +2,11 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-03-25 13:58:58
+# @Last Modified time: 2026-06-12 15:36:23
 # @Last Modified time: 2022-04-08 21:17:22
 
 import struct
+import time
 import numpy as np
 
 from .constants import *
@@ -430,12 +431,37 @@ class RigolDS1054Z(Oscilloscope):
     
     # --------------------- ACQUISITION ---------------------
     
-    def arm_acquisition(self):
+    def arm_single(self):
+        ''' Arm the oscilloscope for a single acquisition. '''
+        self.write('SING')
+    
+    def wait_for_acquisition(self, timeout=None, poll_delay=0.01):
         '''
-        Enables the signal acquisition process by changing the acquisition state
-        (trigger mode) from "stopped" to "single".
+        Wait for acquisition to be completed.
+        
+        :param timeout: query timeout (in seconds). If None, use instrument default timeout.
+        :param poll_delay: delay between completion queries (s)
         '''
-        self.write('RUN')
+        # If timeout is specified, set instrument timeout to specified value and reset after query
+        if timeout is not None:
+            ref_timeout = self.timeout
+            self.timeout = timeout
+
+        # Query instrument for operation complete (which will be sent after trigger event is detected and acquisition is done)
+        try:
+            start = time.time()
+            while True:
+                resp = self.query('*OPC?').strip()
+                if resp == '1':
+                    break
+                if timeout is not None and time.time() - start > timeout:
+                    raise VisaError('Acquisition did not complete in time')
+                time.sleep(poll_delay)
+
+        # Reset instrument timeout to reference value
+        finally:
+            if timeout is not None:
+                self.timeout = ref_timeout
  
     def get_nsweeps_per_acquisition(self):
         ''' Get the number of samples to average from for average acquisition.'''
