@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-12 15:09:17
+# @Last Modified time: 2026-06-23 13:27:16
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -570,8 +570,8 @@ class BK2555(Oscilloscope):
         '''
         # If timeout is specified, set instrument timeout to specified value and reset after query
         if timeout is not None:
-            ref_timeout = self.timeout
-            self.timeout = timeout
+            ref_timeout = self.timeout  # ms
+            self.timeout = timeout * S_TO_MS  # ms
         # Query instrument for operation complete (which will be sent after trigger event is detected and acquisition is done)
         try:
             self.query('*OPC?')
