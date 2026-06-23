@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2025-04-09 20:36:41
+# @Last Modified time: 2026-06-23 12:54:27
 
 import serial
 import struct
@@ -75,7 +75,7 @@ class SutterMP285A:
     ]
     BIT15 = 2**15  # Bit 15 position value
 
-    def __init__(self, timeout=10., resolution='high', lock=False):
+    def __init__(self, timeout=20., resolution='high', lock=False):
         '''
         Initialization
 
@@ -319,9 +319,10 @@ class SutterMP285A:
         if tmove_est > self.timeout:
             tcr = self.TREL_MAX * self.timeout
             vreq = int(np.round(dtot / tcr))
-            vmax = self.get_vbounds(self.get_resolution())[1]
+            res = self.get_resolution()
+            vmax = self.get_vbounds(res)[1]
             if vreq > vmax:
-                raise SutterError(f'required velocity {vreq} um/s exceeds max velocity in {self.res_str} mode ({vmax} um/s)')
+                raise SutterError(f'required velocity to avoid timeout ({vreq} um/s) exceeds max velocity in {self.res_str(res)} mode ({vmax} um/s)')
             logger.warning(
                 f'increasing velocity temporarily to {vreq} um/s to cover {dtot:.2f} um within {self.TREL_MAX * 1e2:.0f} % of {self.timeout} s timeout')
             self.set_velocity(vreq)
