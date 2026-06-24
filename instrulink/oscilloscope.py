@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-23 12:18:10
+# @Last Modified time: 2026-06-24 16:02:15
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -559,7 +559,9 @@ class Oscilloscope(VisaInstrument):
                 if vscale.upper() == 'TRIG':
                     vscale = TTL_PAMP // 2
                     self.set_trigger_level(ich, vscale)
+                    self.wait()
                     self.set_trigger_source(ich)
+                    self.wait()
                     is_trigger_source_set = True
                 else:
                     raise VisaError(f'invalid vscale value: {vscale}')
@@ -567,8 +569,10 @@ class Oscilloscope(VisaInstrument):
             # Otherwise, if trigger source is not set, assign it to this channel 
             elif not is_trigger_source_set:
                 self.set_trigger_source(ich)
+                self.wait()
                 is_trigger_source_set = True
 
             # In any case, set the vertical scale
             self.set_vertical_scale(ich, vscale)
+            self.wait()
 
