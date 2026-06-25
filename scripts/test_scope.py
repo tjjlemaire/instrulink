@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-05-17 10:55:01
+# @Last Modified time: 2026-06-25 13:33:41
 
 import argparse
 import matplotlib.pyplot as plt
@@ -132,6 +132,8 @@ try:
     # Screen data
     print('SCREEN CAPTURE')
     fig = scope.plot_screen_capture()
+
+    logger.info('Test sequence completed successfully')
 
     # Show graphs
     plt.show()

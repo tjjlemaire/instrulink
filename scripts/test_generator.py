@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 15:44:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-11 14:38:20
+# @Last Modified time: 2026-06-25 13:32:58
 
 ''' Initiate test sequence with Rigol waveform generator. '''
 
@@ -127,6 +127,8 @@ try:
 
     # Close connection
     wg.disconnect()
+
+    logger.info('Test sequence completed successfully')
 
 except VisaError as e:
     logger.error(e)

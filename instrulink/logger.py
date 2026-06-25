@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2021-10-11 13:30:15
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-03-16 13:02:25
+# @Last Modified time: 2026-06-25 13:32:10
 
 ''' Collection of logging utilities. '''
 
@@ -25,13 +25,6 @@ my_log_formatter = colorlog.ColoredFormatter(
     style='%')
 
 
-def setHandler(logger, handler):
-    for h in logger.handlers:
-        logger.removeHandler(h)
-    logger.addHandler(handler)
-    return logger
-
-
 def setLogger(name, formatter):
     handler = colorlog.StreamHandler()
     handler.setFormatter(formatter)
@@ -41,16 +34,5 @@ def setLogger(name, formatter):
     return logger
 
 
-class TqdmHandler(logging.StreamHandler):
-
-    def __init__(self, formatter):
-        logging.StreamHandler.__init__(self)
-        self.setFormatter(formatter)
-
-    def emit(self, record):
-        msg = self.format(record)
-        tqdm.write(msg)
-
-
-logger = setLogger('mylogger', my_log_formatter)
+logger = setLogger('instrumentlogger', my_log_formatter)
 logger.setLevel(logging.INFO)
