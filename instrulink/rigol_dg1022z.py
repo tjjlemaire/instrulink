@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-23 12:18:37
+# @Last Modified time: 2026-06-25 11:31:53
 
 import time
 import re
@@ -691,7 +691,7 @@ class RigolDG1022Z(WaveformGenerator):
     
     def write_binary_values(self, cmd, values, **kwargs):
         ''' Write binary values to instrument. '''
-        logger.debug(f'{cmd} {values.size}')
+        self.log_debug(f'{cmd} {values.size}')
         self.instrument_handle.write_binary_values(
             f'{self.PREFIX}{cmd}', values, **kwargs)
 
@@ -1485,7 +1485,7 @@ class RigolDG1022Z(WaveformGenerator):
             if gate_type not in ('trig', 'mod'):
                 raise ValueError(f'invalid gating type: {gate_type}')
             if tramp > 0 and gate_type == 'trig':
-                logger.warning('ramping time not supported for trigger gating, switching to modulation gating')
+                self.log_warning('ramping time not supported for trigger gating, switching to modulation gating')
                 gate_type = 'mod'
 
             # Determine gate-type-dependent parameters

@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-27 18:16:34
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-23 12:54:27
+# @Last Modified time: 2026-06-25 11:34:50
 
 import serial
 import struct
@@ -139,6 +139,18 @@ class SutterMP285A:
     def log(self, msg):
         ''' Log a message prefixed with with class name '''
         logger.info(f'{self.__class__.__name__}: {msg}')
+    
+    def log_warning(self, msg):
+        ''' Log a warning message prefixed with with class name '''
+        logger.warning(f'{self.__class__.__name__}: {msg}')
+    
+    def log_error(self, msg):
+        ''' Log an error message prefixed with with class name '''
+        logger.error(f'{self.__class__.__name__}: {msg}')
+    
+    def log_debug(self, msg):
+        ''' Log a debug message prefixed with with class name '''
+        logger.debug(f'{self.__class__.__name__}: {msg}')
 
     def get_name(self):
         ''' Get controller name '''
@@ -146,7 +158,7 @@ class SutterMP285A:
     
     def write(self, cmd, convert_to_bytes=True):
         ''' Write a command into the serial instrument '''
-        logger.debug(f'WRITE: {cmd}')
+        self.log_debug(f'WRITE: {cmd}')
         if convert_to_bytes:
             cmd = bytes(cmd, self.ENC)
         self.instrument_handle.write(cmd + self.CR)
@@ -187,7 +199,7 @@ class SutterMP285A:
         if out != self.CR:  # check that output is expected
             raise SutterError(
                 f'command {cmd} did not complete before timeout ({self.timeout} s)')
-        logger.debug(f'completed in {tend - tstart:.2f} s')
+        self.log_debug(f'completed in {tend - tstart:.2f} s')
     
     @property
     def status_fmt(self):
@@ -218,7 +230,7 @@ class SutterMP285A:
             status_data['SPEED_RES'] = 0  # set resolution to low
         # Log dict
         status_str = '\n'.join([f'  - {k}: {v}' for k, v in status_data.items()])
-        logger.debug(f'status data:\n{status_str}')
+        self.log_debug(f'status data:\n{status_str}')
         return status_data
 
     def update_status(self):
@@ -273,7 +285,7 @@ class SutterMP285A:
         self.write('c')
         # Read position from controller
         pos = self.decode_position()
-        logfunc = logger.info if verbose else logger.debug
+        logfunc = self.log_info if verbose else self.log_debug
         logfunc(f'stage position: {self.pos_str(pos)}')
         return pos
     
@@ -307,7 +319,7 @@ class SutterMP285A:
 
         # If total distance is zero (no delta), return
         if dtot == 0:
-            logger.warning('already at position!')
+            self.log_warning('already at position!')
             return
 
         # Check if velocity will allow to move there before timeout
@@ -323,7 +335,7 @@ class SutterMP285A:
             vmax = self.get_vbounds(res)[1]
             if vreq > vmax:
                 raise SutterError(f'required velocity to avoid timeout ({vreq} um/s) exceeds max velocity in {self.res_str(res)} mode ({vmax} um/s)')
-            logger.warning(
+            self.log_warning(
                 f'increasing velocity temporarily to {vreq} um/s to cover {dtot:.2f} um within {self.TREL_MAX * 1e2:.0f} % of {self.timeout} s timeout')
             self.set_velocity(vreq)
         else:
@@ -344,11 +356,11 @@ class SutterMP285A:
         if d > self.XYZ_TOL:
             raise SutterError(f'could not reach target position {self.pos_str(pos)} (value = {self.pos_str(new_pos)}, delta = {d:.3f} um)')
         if tmove > max(50e-3, self.TREL_WARN * tmove_est):
-            logger.warning(f'{delta} move took {tmove * 1e3:.3f} ms ({tmove / tmove_est:.2f} times expected time)')
+            self.log_warning(f'{delta} move took {tmove * 1e3:.3f} ms ({tmove / tmove_est:.2f} times expected time)')
         
         # If velocity was changed, reset it to the pre-move value
         if vreq is not None:
-            logger.warning(f'resetting velocity to {v} um/s')
+            self.log_warning(f'resetting velocity to {v} um/s')
             self.set_velocity(v)
     
     def move_to_origin(self):
@@ -367,14 +379,14 @@ class SutterMP285A:
     def get_velocity(self, verbose=False):
         ''' Get controller motion velocity (um/s) '''
         v = self.status_data['XSPEED']
-        logfunc = logger.info if verbose else logger.debug
+        logfunc = self.log_info if verbose else self.log_debug
         logfunc(f'velocity = {v} um/s')
         return v
     
     def get_resolution(self, verbose=False):
         ''' Get controller motion resolution (0 or 1) '''
         res = self.status_data['SPEED_RES']
-        logfunc = logger.info if verbose else logger.debug
+        logfunc = self.log_info if verbose else self.log_debug
         logfunc(f'motion mode: {self.res_str(res)}')
         return res
     

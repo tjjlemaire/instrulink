@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-12 15:36:23
+# @Last Modified time: 2026-06-25 11:32:42
 # @Last Modified time: 2022-04-08 21:17:22
 
 import struct
@@ -163,7 +163,7 @@ class RigolDS1054Z(Oscilloscope):
         ''' Set the vertical sensitivity of the specified channel (in V/div) '''
         self.check_channel_index(ich)
         if value > self.MAX_VDIV:
-            logger.warning(
+            self.log_warning(
                 f'target vertical scale ({value} V/div) above instrument limit ({self.MAX_VDIV} V/div) -> restricting')
             value = self.MAX_VDIV
         if verbose:
@@ -487,7 +487,7 @@ class RigolDS1054Z(Oscilloscope):
         ''' Get the number of samples in memory depth '''
         out = self.query('ACQ:MDEP?')
         if out == 'AUTO':
-            logger.warning('auto memory depth enabled -> returning default value')
+            self.log_warning('auto memory depth enabled -> returning default value')
             return self.SAMPLES_ON_DISPLAY
         else:
             return int(out)

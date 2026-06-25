@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-24 16:02:15
+# @Last Modified time: 2026-06-25 11:38:52
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -220,7 +220,7 @@ class Oscilloscope(VisaInstrument):
         p2pfrac = p2pval / vrange
         # If fraction exceeds max allowed fraction, double vertical scale
         if p2pfrac > max_yrel:
-            logger.warning(f'target signal amplitude ({value:.3f} V) takes more than {max_yrel * 1e2:.0f} % of current vertical range ({vrange:.3f} V)')
+            self.log_warning(f'target signal amplitude ({value:.3f} V) takes more than {max_yrel * 1e2:.0f} % of current vertical range ({vrange:.3f} V)')
             target_vscale = vscale * 2
         # Otherwise, adjust vertical scale to match target fraction
         else:
@@ -248,13 +248,13 @@ class Oscilloscope(VisaInstrument):
         if not (1 - rtol) < vdiv_ratio < (1 + rtol):
             # If current vertical scale is already at limit, do nothing
             if vdiv == self.MIN_VDIV and (1 + rtol) < vdiv_ratio < 1.5:
-                logger.debug('minimum vertical scale reached')
+                self.log_debug('minimum vertical scale reached')
             elif vdiv == self.MAX_VDIV and (1 - rtol) > vdiv_ratio > 0.5:
-                logger.debug('maximum vertical scale reached')
+                self.log_debug('maximum vertical scale reached')
             # Otherwise, adjust vertical scale
             else:
                 self.log(f'adjusting channel {ich} vertical range to detected signal amplitude ({value:.4f} V) -> vdiv = {target_vdiv:.3f} V/div')
-                self.set_vertical_scale(ich, target_vdiv, verbose=False)
+                self.set_vertical_scale(ich, target_vdiv)
         return self.get_vertical_scale(ich)
 
     @abc.abstractmethod
@@ -285,10 +285,10 @@ class Oscilloscope(VisaInstrument):
         raise NotImplementedError
     
     def set_filter(self, *args, **kwargs):
-        logger.warning('no filter capabilities')
+        self.log_warning('no filter capabilities')
     
     def enable_filter(self, ich):
-        logger.warning('no filter capabilities')
+        self.log_warning('no filter capabilities')
 
     def is_filter_enabled(self, ich):
         return False
@@ -380,7 +380,7 @@ class Oscilloscope(VisaInstrument):
         ''' Check that trigger delay value falls within current temporal range '''
         thalfrange = self.get_temporal_range() / 2
         if np.abs(value) > thalfrange:
-            logger.warning(
+            self.log_warning(
                 f'target temporal delay ({si_format(value, 2)}s) outside of current display temporal bounds (+/- {si_format(thalfrange, 2)}s) -> restricting')
             value = np.sign(value) * thalfrange
         return value

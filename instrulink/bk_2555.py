@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-23 13:27:16
+# @Last Modified time: 2026-06-25 11:30:27
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -206,15 +206,14 @@ class BK2555(Oscilloscope):
         out = self.query('TDIV?')
         return self.process_float_mo(out, f'TDIV ({SI_REGEXP})([A-z]+)', 'temporal scale')
     
-    def set_vertical_scale(self, ich, value, verbose=True):
+    def set_vertical_scale(self, ich, value):
         ''' Set the vertical sensitivity of the specified channel (in V/div) '''
         self.check_channel_index(ich)
         if value > self.MAX_VDIV:
-            logger.warning(
+            self.log_warning(
                 f'target vertical scale ({value} V/div) above instrument limit ({self.MAX_VDIV} V/div) -> restricting')
             value = self.MAX_VDIV
-        if verbose:
-            self.log(f'setting channel {ich} vertical scale to {si_format(value, 2)}V/div')
+        self.log(f'setting channel {ich} vertical scale to {si_format(value, 2)}V/div')
         self.write(f'C{ich}: VDIV {self.si_process(value)}V')
 
     def get_vertical_scale(self, ich):
@@ -302,7 +301,7 @@ class BK2555(Oscilloscope):
                         fdict[k] = flims[0]
                     elif f > flims[1]:
                         fdict[k] = flims[1]
-                    logger.warning(errstr + f' Setting to closest limit: {si_format(fdict[k], 1)}Hz')
+                    self.log_warning(errstr + f' Setting to closest limit: {si_format(fdict[k], 1)}Hz')
                     
         fdict = {'flow': flow, 'fhigh': fhigh}
         fdict = {k: v for k, v in fdict.items() if v is not None}
@@ -794,19 +793,19 @@ class BK2555(Oscilloscope):
         
         # Extract number of sweeps per acquisition
         nsweeps_per_acq = self.extract_from_bytes(meta, istart=148, dtype='l')
-        logger.debug(f'# sweeps/acq: {nsweeps_per_acq}')
+        self.log_debug(f'# sweeps/acq: {nsweeps_per_acq}')
         
         # Extract amplitude scale factor and amplitude offset
         vgain = self.extract_from_bytes(meta, istart=156)
-        logger.debug(f'vertical gain: {vgain:.5e}')
+        self.log_debug(f'vertical gain: {vgain:.5e}')
         voff = self.extract_from_bytes(meta, istart=160)
-        logger.debug(f'vertical offset: {voff:.5f} V')
+        self.log_debug(f'vertical offset: {voff:.5f} V')
         
         # Get sampling interval and horizontal offset
         dt = self.extract_from_bytes(meta, istart=176)
-        logger.debug(f'sampling interval: {si_format(dt, 3)}s')
+        self.log_debug(f'sampling interval: {si_format(dt, 3)}s')
         hoff = self.extract_from_bytes(meta, istart=180, dtype='d')
-        logger.debug(f'horizontal offset: {hoff} s')
+        self.log_debug(f'horizontal offset: {hoff} s')
         
         # Extract waveform data
         y = self.query_binary_values(

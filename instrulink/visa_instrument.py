@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-15 09:26:06
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2024-05-07 15:24:58
+# @Last Modified time: 2026-06-25 11:35:31
 
 import abc
 import pyvisa
@@ -100,7 +100,7 @@ class VisaInstrument(metaclass=abc.ABCMeta):
         if self.lock:
             self._lock.acquire()
         text = self.process_text(text)
-        logger.debug(f'QUERY: {text}')
+        self.log_debug(f'QUERY: {text}')
         if not self.testmode:
             out = self.instrument_handle.query(text)[:-1]
         else: 
@@ -114,7 +114,7 @@ class VisaInstrument(metaclass=abc.ABCMeta):
         if self.lock:
             self._lock.acquire()
         text = self.process_text(text)
-        logger.debug(f'QUERY_BINARY_VALUES: {text}')
+        self.log_debug(f'QUERY_BINARY_VALUES: {text}')
         if not self.testmode:
             out = self.instrument_handle.query_binary_values(text, *args, **kwargs)
         else:
@@ -128,7 +128,7 @@ class VisaInstrument(metaclass=abc.ABCMeta):
         if self.lock:
             self._lock.acquire()
         text = self.process_text(text)
-        logger.debug(f'WRITE: {text}')
+        self.log_debug(f'WRITE: {text}')
         if not self.testmode:
             self.instrument_handle.write(f'{text}')
         if self.lock:
@@ -198,6 +198,18 @@ class VisaInstrument(metaclass=abc.ABCMeta):
     def log(self, msg):
         ''' Log a message prefixed with with class name '''
         logger.info(f'{self.__class__.__name__}: {msg}')
+    
+    def log_warning(self, msg):
+        ''' Log a warning message prefixed with with class name '''
+        logger.warning(f'{self.__class__.__name__}: {msg}')
+    
+    def log_error(self, msg):
+        ''' Log an error message prefixed with with class name '''
+        logger.error(f'{self.__class__.__name__}: {msg}')
+    
+    def log_debug(self, msg):
+        ''' Log a debug message prefixed with with class name '''
+        logger.debug(f'{self.__class__.__name__}: {msg}')
 
     # --------------------- I/O PROCESSING ---------------------
 
