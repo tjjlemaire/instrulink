@@ -19,7 +19,7 @@ from .visa_instrument import *
 class Oscilloscope(VisaInstrument):
     ''' Base class for oscilloscopes. '''
 
-    TIMEOUT_SECONDS = 5. # 20.  # long timeout to allow slow commands (e.g. auto-setup)
+    TIMEOUT_SECONDS = 10. # 20.  # long timeout to allow slow commands (e.g. auto-setup)
     
     # --------------------- REQUIRED ATTRIBUTES ---------------------
     

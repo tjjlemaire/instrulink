@@ -165,6 +165,7 @@ class VisaInstrument(metaclass=abc.ABCMeta):
         try:
             return self.query('*IDN?')
         except pyvisa.errors.VisaIOError as e:
+            self.log_error(f'error querying IDN: {e}')
             return None
     
     def get_name(self):
