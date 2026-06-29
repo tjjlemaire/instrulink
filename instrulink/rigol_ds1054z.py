@@ -434,29 +434,40 @@ class RigolDS1054Z(Oscilloscope):
     def arm_single(self):
         ''' Arm the oscilloscope for a single acquisition. '''
         self.write('SING')
+        # Wait for the oscilloscope to be armed and ready for acquisition before returning
+        while not self.get_trigger_status() == 'WAIT':
+            time.sleep(0.05)
     
-    def wait_for_acquisition(self, timeout=None, poll_delay=0.01):
+    def wait_for_acquisition(self, timeout=None, poll_delay=0.1, log_delay=1.):
         '''
         Wait for acquisition to be completed.
         
         :param timeout: query timeout (in seconds). If None, use instrument default timeout.
         :param poll_delay: delay between completion queries (s)
+        :param log_delay: delay between wait log message (s)
         '''
         # If timeout is specified, set instrument timeout to specified value and reset after query
         if timeout is not None:
             ref_timeout = self.timeout
-            self.timeout = timeout
+            self.timeout = timeout * S_TO_MS
+
+        # Figure out every how many queries to log a message (at least 1)
+        n = max(int(log_delay / poll_delay), 1)
 
         # Query instrument for operation complete (which will be sent after trigger event is detected and acquisition is done)
         try:
-            start = time.time()
-            while True:
-                resp = self.query('*OPC?').strip()
-                if resp == '1':
-                    break
-                if timeout is not None and time.time() - start > timeout:
+            start_time = time.time()
+            counter = 0
+            while self.is_running():
+                if counter == n:
+                    self.log('waiting for acquisition...')
+                    counter = 0
+                counter += 1
+                if timeout is not None and time.time() - start_time > timeout:
                     raise VisaError('Acquisition did not complete in time')
                 time.sleep(poll_delay)
+            time_elapsed = time.time() - start_time
+            self.log(f'waited for {si_format(time_elapsed, 2)}s')
 
         # Reset instrument timeout to reference value
         finally:
