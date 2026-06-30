@@ -410,6 +410,7 @@ class RigolDS1054Z(Oscilloscope):
         if self.get_trigger_source() != ich:
             self.set_trigger_source(ich)
         ttype = self.get_trigger_type()
+        self.log(f'setting {ttype} trigger level to {si_format(value, 2)}V')
         self.write(f'TRIG:{ttype}:LEV {value}')
     
     def get_trigger_delay(self):

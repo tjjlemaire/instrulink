@@ -727,9 +727,14 @@ class BK2555(Oscilloscope):
         
         :param sp: sparsing,
         :param npoints: number of points
-        :param fp: position of the 1st point)
+        :param fp: position of the 1st point
         '''
         self.write(f'WFSU SP,{sp}, NP,{npoints}, FP,{fp}')
+    
+    def set_nsamples(self, npoints):
+        ''' Set the number of samples for waveform acquisition '''
+        sp, _, fp, _ = self.get_waveform_settings()
+        self.set_waveform_settings(sp=sp, npoints=npoints, fp=fp)
     
     def get_waveform_template(self):
         ''' Get a template description of the various logical entities making up a complete waveform.'''

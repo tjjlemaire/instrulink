@@ -482,9 +482,9 @@ class Oscilloscope(VisaInstrument):
     
     # --------------------- WAVEFORMS ---------------------
 
-    def set_waveform_settings(self, *args, **kwargs):
-        ''' Set waveform settings '''
-        pass
+    @abc.abstractmethod
+    def get_nsamples(self):
+        raise NotImplementedError
 
     @abc.abstractmethod
     def get_waveform_data(self, ich):
@@ -544,7 +544,7 @@ class Oscilloscope(VisaInstrument):
             Vertical scales should be provided in (V/div). If "TRIG" is provided 
             instead of a vertical scale, the channel vertical scale and trigger settings
             will be automatically adjusted to detect the default TTL pulse amplitude, and 
-            the trigger soruce will be set to this channel. If no "TRIG" is provided, the
+            the trigger source will be set to this channel. If no "TRIG" is provided, the
             first channel with a non-"TRIG" vertical scale will be set as the trigger source. 
         '''
         # Set "is_trigger_source_set" flag to False
@@ -553,11 +553,13 @@ class Oscilloscope(VisaInstrument):
         # Loop over all input channels
         for ich, vscale in vscales.items():
             
-            # If vscale is 'TRIG', set detection level to TTL / 2 and 
+            # If vscale is 'TRIG', set vscale and detection level to TTL / 2, and 
             # set trigger source to this channel
             if isinstance(vscale, str):
                 if vscale.upper() == 'TRIG':
                     vscale = TTL_PAMP // 2
+                    self.set_vertical_scale(ich, vscale)
+                    self.wait()
                     self.set_trigger_level(ich, vscale)
                     self.wait()
                     self.set_trigger_source(ich)
@@ -566,13 +568,11 @@ class Oscilloscope(VisaInstrument):
                 else:
                     raise VisaError(f'invalid vscale value: {vscale}')
 
-            # Otherwise, if trigger source is not set, assign it to this channel 
-            elif not is_trigger_source_set:
-                self.set_trigger_source(ich)
+            # Otherwise, set vscale to assigned value, and if trigger source is not set, assign it to this channel 
+            else:
+                self.set_vertical_scale(ich, vscale)
                 self.wait()
-                is_trigger_source_set = True
-
-            # In any case, set the vertical scale
-            self.set_vertical_scale(ich, vscale)
-            self.wait()
-
+                if not is_trigger_source_set:
+                    self.set_trigger_source(ich)
+                    self.wait()
+                    is_trigger_source_set = True
