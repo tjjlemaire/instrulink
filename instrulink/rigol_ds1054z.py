@@ -432,26 +432,29 @@ class RigolDS1054Z(Oscilloscope):
     
     # --------------------- ACQUISITION ---------------------
     
-    def arm_single(self):
+    def arm_single(self, timeout=np.inf):
         ''' Arm the oscilloscope for a single acquisition. '''
+        # Send command to arm the oscilloscope for a single acquisition
         self.write('SING')
+        # Make sure the oscilloscope has processed the command before continuing
+        self.wait()
         # Wait for the oscilloscope to be armed and ready for acquisition before returning
-        while not self.get_trigger_status() == 'WAIT':
+        status = self.get_trigger_status()
+        start_time = time.time()
+        while not status == 'WAIT' and (time.time() - start_time) < timeout:
             time.sleep(0.05)
+            status = self.get_trigger_status()
+        if status != 'WAIT':
+            raise VisaError('timeout waiting for oscilloscope to arm for single acquisition')
     
     def wait_for_acquisition(self, timeout=None, poll_delay=0.1, log_delay=1.):
         '''
         Wait for acquisition to be completed.
         
-        :param timeout: query timeout (in seconds). If None, use instrument default timeout.
+        :param timeout: query timeout (in seconds).
         :param poll_delay: delay between completion queries (s)
         :param log_delay: delay between wait log message (s)
         '''
-        # If timeout is specified, set instrument timeout to specified value and reset after query
-        if timeout is not None:
-            ref_timeout = self.timeout
-            self.timeout = timeout * S_TO_MS
-
         # Figure out every how many queries to log a message (at least 1)
         n = max(int(log_delay / poll_delay), 1)
 
@@ -470,10 +473,9 @@ class RigolDS1054Z(Oscilloscope):
             time_elapsed = time.time() - start_time
             self.log(f'waited for {si_format(time_elapsed, 2)}s')
 
-        # Reset instrument timeout to reference value
-        finally:
-            if timeout is not None:
-                self.timeout = ref_timeout
+        # If an exception occurs during the wait, catch it and raise a VisaError
+        except Exception as e:
+            raise VisaError(f'Acquisition wait failed: {e}')
  
     def get_nsweeps_per_acquisition(self):
         ''' Get the number of samples to average from for average acquisition.'''
@@ -736,3 +738,156 @@ class RigolDS1054Z(Oscilloscope):
         # Return time and voltage vectors
         return t, y
 
+    # --------------------- FUNCTIONS (waveform recording and playback parameters) ---------------------
+
+    def set_waveform_recording_end(self, value):
+        ''' Set waveform recording end frame '''
+        self.write(f'FUNCtion:WRECord:FEND {value}')
+
+    def get_waveform_recording_end(self):
+        ''' Get waveform recording end frame '''
+        return self.query('FUNCtion:WRECord:FEND?')
+    
+    def get_waveform_recording_max(self):
+        ''' Query the maximum number of frames can be recorded currently. '''
+        return self.query('FUNCtion:WRECord:FMAX?')
+    
+    def set_waveform_recording_interval(self, value):
+        ''' Set the time interval between frames in waveform recording (in seconds) '''
+        self.write(f'FUNCtion:WRECord:FINTerval {value}')
+
+    def get_waveform_recording_interval(self):
+        ''' Get the time interval between frames in waveform recording (in seconds) '''
+        out = self.query('FUNCtion:WRECord:FINTerval?')
+        return float(out)
+        
+    def set_waveform_recording_prompt(self, value: bool):
+        ''' Set the status of the sound prompt for waveform recording (on/off) '''
+        self.write(f'FUNCtion:WRECord:PROMpt {int(value)}')
+
+    def enable_waveform_recording_prompt(self):
+        ''' Turn on the sound prompt when the recording finishes. '''
+        self.set_waveform_recording_prompt(True)
+
+    def disable_waveform_recording_prompt(self):
+        ''' Turn off the sound prompt when the recording finishes. '''
+        self.set_waveform_recording_prompt(False)
+
+    def get_waveform_recording_prompt(self):
+        ''' Get the status of the sound prompt for waveform recording (on/off) '''
+        out = self.query('FUNCtion:WRECord:PROMpt?')
+        return bool(int(out))
+    
+    def operate_waveform_recording(self, value):
+        ''' Set status of waveform recording operation (RUN/STOP) '''
+        self.write(f'FUNCtion:WRECord:OPERate {value}')
+    
+    def start_waveform_recording(self):
+        ''' Start waveform recording operation '''
+        self.operate_waveform_recording('RUN')
+
+    def stop_waveform_recording(self):
+        ''' Stop waveform recording operation '''
+        self.operate_waveform_recording('STOP')
+    
+    def is_waveform_recording_running(self):
+        ''' Query if waveform recording operation is currently running '''
+        out = self.query('FUNCtion:WRECord:OPERate?')
+        return out.strip() == 'RUN'
+    
+    def set_waveform_recording_function(self, value):
+        ''' Set the waveform recording function (e.g., ON/OFF) '''
+        self.write(f'FUNCtion:WRECord:ENABle {value}')
+    
+    def enable_waveform_recording_function(self):
+        ''' Enable the waveform recording function '''
+        self.set_waveform_recording_function('ON')
+
+    def disable_waveform_recording_function(self):
+        ''' Disable the waveform recording function '''
+        self.set_waveform_recording_function('OFF')
+
+    def is_waveform_recording_function_enabled(self):
+        ''' Query if the waveform recording function is enabled '''
+        out = self.query('FUNCtion:WRECord:ENABle?')
+        return bool(int(out))
+    
+    def set_waveform_playback_start_frame(self, value: int):
+        ''' Set the start frame for waveform playback '''
+        self.write(f'FUNCtion:WREPlay:FSTart {value}')
+    
+    def get_waveform_playback_start_frame(self) -> int:
+        ''' Get the start frame for waveform playback '''
+        out = self.query('FUNCtion:WREPlay:FSTart?')
+        return int(out)
+    
+    def set_waveform_playback_end_frame(self, value: int):
+        ''' Set the end frame for waveform playback '''
+        self.write(f'FUNCtion:WREPlay:FEND {value}')
+    
+    def get_waveform_playback_end_frame(self) -> int:
+        ''' Get the end frame for waveform playback '''
+        out = self.query('FUNCtion:WREPlay:FEND?')
+        return int(out)
+    
+    def get_waveform_playback_max(self) -> int:
+        ''' Get the maximum frame for waveform playback '''
+        out = self.query('FUNCtion:WREPlay:FMAX?')
+        return int(out)
+
+    def set_waveform_playback_interval(self, value: float):
+        ''' Set the waveform playback interval '''
+        self.write(f'FUNCtion:WREPlay:FINTerval {value}')
+
+    def get_waveform_playback_interval(self) -> float:
+        ''' Get the waveform playback interval '''
+        out = self.query('FUNCtion:WREPlay:FINTerval?')
+        return float(out)
+    
+    def set_waveform_playback_mode(self, value: str):
+        ''' Set the waveform playback mode (repeat/single)'''
+        self.write(f'FUNCtion:WREPlay:MODE {value}')
+
+    def get_waveform_playback_mode(self) -> str:
+        ''' Get the waveform playback mode '''
+        out = self.query('FUNCtion:WREPlay:MODE?')
+        return out.strip()
+
+    def set_waveform_playback_direction(self, value: str):
+        ''' Set the waveform playback direction (FORW/BACK) '''
+        self.write(f'FUNCtion:WREPlay:DIRection {value}')
+
+    def get_waveform_playback_direction(self) -> str:
+        ''' Get the waveform playback direction (FORW/BACK) '''
+        out = self.query('FUNCtion:WREPlay:DIRection?')
+        return out.strip()
+    
+    def set_waveform_playback_status(self, value: str):
+        ''' Set the waveform playback operate state (PLAY/PAUS/STOP) '''
+        self.write(f'FUNCtion:WREPlay:OPERate {value}')
+    
+    def start_waveform_playback(self):
+        ''' Start waveform playback '''
+        self.set_waveform_playback_status('PLAY')
+
+    def pause_waveform_playback(self):
+        ''' Pause waveform playback '''
+        self.set_waveform_playback_status('PAUS')
+
+    def stop_waveform_playback(self):
+        ''' Stop waveform playback '''
+        self.set_waveform_playback_status('STOP')
+
+    def get_waveform_playback_status(self) -> str:
+        ''' Query the status of the waveform playback (PLAY/PAUS/STOP) '''
+        out = self.query('FUNCtion:WREPlay:OPERate?')
+        return out.strip()
+    
+    def set_waveform_playback_current_frame(self, value: int):
+        ''' Set the current frame for waveform playback '''
+        self.write(f'FUNCtion:WREPlay:FCURrent {value}')
+    
+    def get_waveform_playback_current_frame(self) -> int:
+        ''' Get the current frame for waveform playback '''
+        out = self.query('FUNCtion:WREPlay:FCURrent?')
+        return int(out)

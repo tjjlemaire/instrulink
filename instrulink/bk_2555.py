@@ -557,9 +557,10 @@ class BK2555(Oscilloscope):
     
     # --------------------- ACQUISITION ---------------------
     
-    def arm_single(self):
+    def arm_single(self, timeout=np.inf):
         ''' Arm the oscilloscope for a single acquisition. '''
         self.write('ARM')
+        self.wait()
 
     def wait_for_acquisition(self, timeout=None):
         '''

@@ -405,10 +405,20 @@ class Oscilloscope(VisaInstrument):
         ''' Force the instrument to make 1 acquisition '''
         raise NotImplementedError
     
+    def set_for_ttl_trigger(self, ich):
+        ''' Configure the oscilloscope for a TTL trigger on the specified channel '''                        
+        vscale = TTL_PAMP // 2
+        self.set_vertical_scale(ich, vscale)
+        self.wait()
+        self.set_trigger_level(ich, vscale)
+        self.wait()
+        self.set_trigger_source(ich)
+        self.wait()
+    
     # --------------------- ACQUISITION ---------------------
     
     @abc.abstractmethod
-    def arm_single(self):
+    def arm_single(self, timeout=np.inf):
         ''' Arm the oscilloscope for a single acquisition. '''
         raise NotImplementedError
     
@@ -536,7 +546,7 @@ class Oscilloscope(VisaInstrument):
     
     # --------------------- MULTI-CHANNEL SETTING ---------------------
 
-    def set_multichannel_vscale(self, vscales):
+    def set_multichannel_vscale(self, vscales, assign_trigger=True):
         ''' 
         Set vertical scales on multiple channels
         
@@ -557,13 +567,7 @@ class Oscilloscope(VisaInstrument):
             # set trigger source to this channel
             if isinstance(vscale, str):
                 if vscale.upper() == 'TRIG':
-                    vscale = TTL_PAMP // 2
-                    self.set_vertical_scale(ich, vscale)
-                    self.wait()
-                    self.set_trigger_level(ich, vscale)
-                    self.wait()
-                    self.set_trigger_source(ich)
-                    self.wait()
+                    self.set_for_ttl_trigger(ich)
                     is_trigger_source_set = True
                 else:
                     raise VisaError(f'invalid vscale value: {vscale}')
@@ -572,7 +576,7 @@ class Oscilloscope(VisaInstrument):
             else:
                 self.set_vertical_scale(ich, vscale)
                 self.wait()
-                if not is_trigger_source_set:
+                if not is_trigger_source_set and assign_trigger:
                     self.set_trigger_source(ich)
                     self.wait()
                     is_trigger_source_set = True
