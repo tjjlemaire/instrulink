@@ -151,6 +151,10 @@ class Oscilloscope(VisaInstrument):
             if self.is_trace(ich):
                 self.hide_trace(ich)
     
+    def get_enabled_channels(self):
+        ''' Get a list of currently enabled channels '''
+        return [ich for ich in self.CHANNELS if self.is_trace(ich)]
+    
     @abc.abstractmethod
     def get_screen_binary_img(self):
         ''' Extract screen capture image in binary format '''

@@ -32,6 +32,13 @@ class RigolDS1054Z(Oscilloscope):
     TFACTORS = np.logspace(-9, 1, 11)  # timebase multiplying factors
     TDIVS = np.ravel((np.tile(TBASES, (TFACTORS.size, 1)).T * TFACTORS).T)[2:]  # timebase values
 
+    # Allowed memory depth values as a function of number of enabled channels
+    MDEPTH_VALUES = {
+        1: (12000, 120000, 1200000, 12000000, 24000000),
+        2: (6000, 60000, 600000, 6000000, 12000000),
+        4: (3000, 30000, 300000, 3000000, 6000000)
+    }
+
     # Acquisition parameters
     COUPLING_MODES = (  # coupling modes
         'AC',  # alternating current
@@ -508,6 +515,22 @@ class RigolDS1054Z(Oscilloscope):
 
     def set_nsamples(self, value):
         ''' Set the number of samples in memory depth '''
+        # If value is not auto, check that it is one of the allowed memory depth values
+        # for the current number of enabled channels
+        if value != 'AUTO':
+            nchs = len(self.get_enabled_channels())
+            effective_nchs = 4 if nchs == 3 else nchs
+            allowed_values = self.MDEPTH_VALUES[effective_nchs]
+            # If not in allowed values
+            if value not in allowed_values:
+                # If outside of range, raise error with allowed values for effective number of channels
+                if value < min(allowed_values) or value > max(allowed_values):
+                    raise VisaError(f'invalid memory depth: {value} (candidates are {allowed_values})')
+                # Otherwise, find the closest higher allowed value and log a warning
+                else:
+                    closest_value = min([v for v in allowed_values if v >= value], key=lambda x: abs(x - value))
+                    self.log_warning(f'invalid memory depth: {value} (using closest higher value {closest_value})')
+                    value = closest_value
         self.write(f'ACQ:MDEP {value}') 
 
     def get_acquisition_type(self):

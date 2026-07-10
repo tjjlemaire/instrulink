@@ -30,6 +30,7 @@ class RigolDG1022Z(WaveformGenerator):
     ANTIPHASE = 180  # degrees
     CHANNELS = (1, 2)
     PREFIX = ':'
+    ZINF = 9.9e37  # Effectively infinite output impedance
 
     # Coupling
     CPL_PATTERN = '^FREQ:(ON|OFF),PHASE:(ON|OFF),AMPL:(ON|OFF)$'
@@ -50,10 +51,10 @@ class RigolDG1022Z(WaveformGenerator):
     # Modulation
     MOD_MODES = ('AM', 'FM', 'PM', 'ASK', 'FSK', 'PSK', 'PWM')
     MOD_VOLT_RANGE = (-5, 5)  # voltage range regulating modulation (V)
-    MOD_VOLT_MARGIN = 0.05  # margin on each side to ensure full range amplitude modulation (V)
     AM_DEPTH_RANGE = (0, 120)  # AM depth range (%)
     AM_FREQ_RANGE = (2e-3, 1e6)  # AM frequency range (Hz)
     MOD_SOURCES = ('INT', 'EXT')  # modulation sources
+    MOD_EXT_INPUT_Z = 1000  # Input impedance of the rear BNC connector in Ext MOD mode (Ohms)
 
     # Trigger
     TRIGGER_SOURCES = ('INT', 'EXT', 'MAN')
@@ -131,8 +132,36 @@ class RigolDG1022Z(WaveformGenerator):
         self.enable_output()
         time.sleep(1)
         self.disable_output()
+
+    def set_output_impedance(self, ich, Z):
+        ''' 
+        Set output impedance for a specific channel 
+
+        :param ich: channel index
+        :param Z: impedance value (Ohms)
+        '''
+        self.check_channel_index(ich)
+        # If the impedance is infinite, set it to 'INF' (High-Z mode) for the instrument
+        self.log(f'setting channel {ich} output impedance to {Z} Ohm')
+        if Z == np.inf:
+            Z = 'INF'
+        self.write(f'OUTP{ich}:IMP {Z}')
+        self.log(f'channel {ich} output impedance: {self.get_output_impedance(ich)} Ohm')
     
-    # --------------------- SYNC ---------------------
+    def get_output_impedance(self, ich):
+        ''' 
+        Get output impedance for a specific channel 
+
+        :param ich: channel index
+        :return: impedance value (Ohms)
+        '''
+        self.check_channel_index(ich)
+        out = float(self.query(f'OUTP{ich}:IMP?'))
+        if out == self.ZINF:  # value indicating infinite impedance (High-Z mode)
+            return np.inf
+        return out
+    
+    # --------------------- OUTPUT SYNC ---------------------
     
     def enable_output_sync(self, ich):
         ''' Enable sync signal of specific channel on rear panel connector '''
@@ -1334,8 +1363,8 @@ class RigolDG1022Z(WaveformGenerator):
             self.set_square_duty_cycle(ich, DC)  # %
             self.invert_waveform_phase(ich)  # invert phase to avoid DC offset
 
-        # Set waveform amplitude to full AM range (with extra margin) and ensure zero offset
-        self.set_waveform_amp(ich, (1 + 2 * self.MOD_VOLT_MARGIN) * self.MOD_VOLT_AMP)
+        # Set waveform amplitude to full AM range and ensure zero offset
+        self.set_waveform_amp(ich, self.MOD_VOLT_AMP)
         self.set_waveform_offset(ich, 0)
         
         # Apply waveform as burst with specific repetition frequency
@@ -1348,7 +1377,7 @@ class RigolDG1022Z(WaveformGenerator):
         if self.is_waveform_phase_inverted(ich):
             self.set_output_sync_polarity(ich, 'NEG')
 
-    def _set_triggered_sine_burst_train(self, Fdrive, Vpp, tstim, PRF, DC, ich_trig=1, ich_carrier=2, **kwargs):
+    def _set_triggered_sine_burst_train(self, Fdrive, Vpp, tstim, PRF, DC, ich_trig=1, ich_carrier=2, Z_carrier=None, **kwargs):
         '''
         Set a train of sine bursts on a specific channel, triggered by "TTL-style" pulses on another channel. 
         Used for pulsed sinusoidal waveform generation.
@@ -1360,6 +1389,8 @@ class RigolDG1022Z(WaveformGenerator):
         :param DC: duty cycle (%)
         :param ich_trig: index of the trigger channel
         :param ich_carrier: index of the carrier channel
+        :param Z_carrier: output impedance of the carrier channel (Ohms). Used to match the carrier 
+            channel amplitude & DC offset metrics to a given load (e.g., the input impedance of the RF amplifier)
         '''
         # Check that channels indexes are different
         if ich_trig == ich_carrier:
@@ -1380,13 +1411,17 @@ class RigolDG1022Z(WaveformGenerator):
         self.enable_burst(ich_carrier)
         self.set_trigger_source(ich_carrier, 'EXT')
 
+        # Set carrier channel output impedance if specified
+        if Z_carrier is not None:
+            self.set_output_impedance(ich_carrier, Z_carrier)
+
         # If carrier amplitude is > 0, enable all outputs 
         # (carrier channel last to avoid erroneous outputs)
         if Vpp > 0.:
             self.enable_output_channel(ich_trig)
             self.enable_output_channel(ich_carrier)
     
-    def _set_AM_sine_burst_train(self, Fdrive, Vpp, tstim, PRF, DC, tramp=0, ich_mod=1, ich_carrier=2, **kwargs):
+    def _set_AM_sine_burst_train(self, Fdrive, Vpp, tstim, PRF, DC, tramp=0, ich_mod=1, ich_carrier=2, Z_carrier=None, **kwargs):
         '''
         Set a train of sine bursts on a specific channel, amplitude-modulated by another channel.
         Used for pulsed sinusoidal waveform generation, with optional envelope smoothing.
@@ -1399,6 +1434,8 @@ class RigolDG1022Z(WaveformGenerator):
         :param tramp: nominal pulse ramping duration (s), defaults to 0
         :param ich_mod: index of the modulating channel
         :param ich_carrier: index of the carrier channel
+        :param Z_carrier: output impedance of the carrier channel (Ohms). Used to match the carrier 
+            channel amplitude & DC offset metrics to a given load (e.g., the input impedance of the RF amplifier)
         '''
         # Check that channels indexes are different
         if ich_mod == ich_carrier:
@@ -1411,11 +1448,20 @@ class RigolDG1022Z(WaveformGenerator):
         # Set envelope modulating channel parameters
         self.set_AM_pulse_train(ich_mod, PRF, DC, tstim, tramp=tramp, **kwargs)
 
+        # Set output impedance of the modulating channel to match the 
+        # input impedance of the external modulation input of the carrier channel
+        self.set_output_impedance(ich_mod, self.MOD_EXT_INPUT_Z)
+
         # Set sinewave channel parameters
         self.log(f'setting channel {ich_carrier} to output ({si_format(Fdrive, 2)}Hz, {si_format(Vpp, 3)}Vpp) sine wave amplitude-modulated externally by channel {ich_mod}')
         self.apply_sine(ich_carrier, Fdrive, Vpp, 0)
         self.enable_am(ich_carrier)
+        self.set_am_depth(ich_carrier, 100)
         self.set_am_source(ich_carrier, 'EXT')
+
+        # Set carrier channel output impedance if specified
+        if Z_carrier is not None:
+            self.set_output_impedance(ich_carrier, Z_carrier)
 
         # If carrier amplitude is > 0, enable all outputs 
         # (carrier channel last to avoid erroneous outputs)
@@ -1456,7 +1502,7 @@ class RigolDG1022Z(WaveformGenerator):
             raise VisaError(f'invalid gating type: {gate_type}')
     
     def set_looping_sine_burst(self, ich, Fdrive, Vpp=.1, ncycles=200, PRF=100., tramp=0, 
-                               ich_trig=None, gate_type='trig'):
+                               ich_trig=None, gate_type='trig', Z_carrier=None):
         '''
         Set an internally looping sine burst on a specific channel
         
@@ -1467,6 +1513,9 @@ class RigolDG1022Z(WaveformGenerator):
         :param PRF: pulse repetition frequency (Hz)
         :param tramp: nominal pulse ramping duration (s), defaults to 0
         :param ich_trig (optional): triggering channel index
+        :param gate_type: gating type (default: "trig")
+        :param Z_carrier: output impedance of the carrier channel (Ohms). Used to match the carrier 
+            channel amplitude & DC offset metrics to a given load (e.g., the input impedance of the RF amplifier)
         '''
         # Cast number of cycles to integer
         ncycles = int(np.round(ncycles))
@@ -1504,7 +1553,8 @@ class RigolDG1022Z(WaveformGenerator):
             self.set_sine_burst_train(
                 Fdrive, Vpp, tstim, internal_PRF, DC, T=mod_T, 
                 tramp=tramp if gate_type == 'mod' else 0, 
-                ich_gate=ich_trig, ich_carrier=ich, gate_type=gate_type
+                ich_gate=ich_trig, ich_carrier=ich, gate_type=gate_type, 
+                Z_carrier=Z_carrier
             )
             
             # Trigger mode: start trigger loop on trigger channel
@@ -1538,6 +1588,10 @@ class RigolDG1022Z(WaveformGenerator):
             self.set_burst_internal_period(ich, 1 / PRF)  # s
             self.set_burst_ncycles(ich, ncycles)
             self.enable_burst(ich)
+
+            # Set channel output impedance if specified
+            if Z_carrier is not None:
+                self.set_output_impedance(ich, Z_carrier)
 
             # Start trigger loop and enable output
             self.start_trigger_loop(ich)
