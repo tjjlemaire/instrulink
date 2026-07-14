@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-25 11:31:53
+# @Last Modified time: 2026-07-14 13:10:19
 
 import time
 import re
@@ -1352,7 +1352,11 @@ class RigolDG1022Z(WaveformGenerator):
         if tramp > 0:
             # Design smoothed waveform with appropriate number of points
             npts = self.ARB_WF_MAXNPTS_PER_PACKET
-            _, y = get_DC_smoothed_pulse_envelope(npts, PRF, DC, tramp=tramp, plot=None)
+            
+            # Generate single pulse envelope
+            tpulse = DC / (100 * PRF)  # s
+            toff = 1 / PRF - tpulse  # s
+            _, y = get_pulse_envelope(npts, tpulse, toff, tramp=tramp)
 
             # Upload it to volatile memory of specified channel, and set waveform type to "user"
             self.upload_arbitrary_waveform(ich, y, activate=True)
