@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-25 11:32:42
+# @Last Modified time: 2026-07-24 14:27:10
 # @Last Modified time: 2022-04-08 21:17:22
 
 import struct
@@ -69,7 +69,7 @@ class RigolDS1054Z(Oscilloscope):
 
     # --------------------- MISCELLANEOUS ---------------------
 
-    def wait(self, t=None):
+    def wait(self):
         ''' Wait for previous command to finish. '''
         self.write('*WAI')
     

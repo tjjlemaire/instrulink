@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-06-25 11:38:52
+# @Last Modified time: 2026-07-24 15:16:10
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -113,6 +113,11 @@ class Oscilloscope(VisaInstrument):
     def calibrate(self):
         ''' Calibrate oscilloscope '''
         raise NotImplementedError
+
+    @abc.abstractmethod
+    def wait(self):
+        ''' Wait for previous command to finish. '''
+        raise NotImplementedError
     
     # --------------------- DISPLAY ---------------------
 
@@ -222,19 +227,15 @@ class Oscilloscope(VisaInstrument):
         vrange = self.get_vertical_range(ich)
         # Compute fraction of vertical range taken by signal
         p2pfrac = p2pval / vrange
-        # If fraction exceeds max allowed fraction, double vertical scale
+        # If fraction exceeds max allowed fraction, send warning
         if p2pfrac > max_yrel:
-            self.log_warning(f'target signal amplitude ({value:.3f} V) takes more than {max_yrel * 1e2:.0f} % of current vertical range ({vrange:.3f} V)')
-            target_vscale = vscale * 2
-        # Otherwise, adjust vertical scale to match target fraction
-        else:
-            target_vscale = vscale * p2pfrac / target_yrel
+            self.log_warning(f'target peak-to-peak signal amplitude ({si_format(p2pval, 2)}V) takes {p2pfrac * 1e2:.0f} % of current v-range ({si_format(vrange, 2)}V)')
+        # Adjust vertical scale to match target fraction
+        target_vscale = vscale * p2pfrac / target_yrel
         # Clip output to valid range
-        return np.clip(
-            target_vscale, 
-            self.MIN_VDIV, self.MAX_VDIV)
+        return np.clip(target_vscale, self.MIN_VDIV, self.MAX_VDIV)
 
-    def adjust_vertical_scale(self, ich, value, rtol=.1, **kwargs):
+    def adjust_vertical_scale(self, ich, value, rtol=.25, **kwargs):
         '''
         Adjust vertical scale to accurately acquire a signal of specific amplitude
         
@@ -242,24 +243,39 @@ class Oscilloscope(VisaInstrument):
         :param value: target signal amplitude (in V)
         :param rtol: relative tolerance for vertical scale adjustment
         '''
-        # Compute target vertical scale
-        target_vdiv = self.get_target_vertical_scale(ich, value, **kwargs)
+        # If value is non-positive, issue warning and return current vertical scale
+        if value <= 0:
+            self.log_warning(f'non-positive signal amplitude ({si_format(value, 2)}V) -> no vertical scale adjustment')
+            return self.get_vertical_scale(ich)
+
         # Get current vertical scale        
         vdiv = self.get_vertical_scale(ich)
+        # Compute target vertical scale
+        target_vdiv = self.get_target_vertical_scale(ich, value, **kwargs)
         # Compute ratio of target vertical scale to current vertical scale
         vdiv_ratio = target_vdiv / vdiv
         # If ratio is outside of tolerance
-        if not (1 - rtol) < vdiv_ratio < (1 + rtol):
-            # If current vertical scale is already at limit, do nothing
+        if not (1 - rtol) < vdiv_ratio < (1 + rtol):            
+            # If current vertical scale is already at minimum and target vertical scale
+            # is above defined tolerance upper bound but less than 50% above value,
+            # issue warning and do not adjust. This is meant to avoid excessive vertical scale 
+            # adjustments when the signal amplitude is very small.
             if vdiv == self.MIN_VDIV and (1 + rtol) < vdiv_ratio < 1.5:
-                self.log_debug('minimum vertical scale reached')
+                self.log_warning('minimum vertical scale reached')
+
+            # Analogously, if current vertical scale is already at maximum and target vertical scale
+            # is below defined tolerance lower bound but more than 50% below value,
+            # issue warning and do not adjust. This is meant to avoid excessive vertical scale 
+            # adjustments when the signal amplitude is very large.
             elif vdiv == self.MAX_VDIV and (1 - rtol) > vdiv_ratio > 0.5:
-                self.log_debug('maximum vertical scale reached')
+                self.log_warning('maximum vertical scale reached')
+
             # Otherwise, adjust vertical scale
             else:
-                self.log(f'adjusting channel {ich} vertical range to detected signal amplitude ({value:.4f} V) -> vdiv = {target_vdiv:.3f} V/div')
                 self.set_vertical_scale(ich, target_vdiv)
-        return self.get_vertical_scale(ich)
+                self.wait()
+                new_vdiv = self.get_vertical_scale(ich)
+                self.log(f'adjusted CH{ich} v-range to target peak-to-peak signal amplitude ({si_format(2 * value, 2)}V) -> vdiv = {si_format(new_vdiv, 2)}V/div')
 
     @abc.abstractmethod
     def set_vertical_offset(self, ich, value):

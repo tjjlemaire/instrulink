@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-07-14 15:15:22
+# @Last Modified time: 2026-07-24 14:30:17
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
@@ -99,14 +99,27 @@ class BK2555(Oscilloscope):
         'NDUTY': '%'  # negative duty cycle
     }
 
+    INR_FLAGS = {
+        0: 'new_signal_acquired',
+        1: 'screen_dump_terminated',
+        2: 'returned_to_local',
+        3: 'data_block_timeout',
+        4: 'sequence_segment_acquired',
+        6: 'mass_storage_full',
+        7: 'mass_storage_changed',
+        8: 'trace_a_processing_done',
+        9: 'trace_b_processing_done',
+        10: 'trace_c_processing_done',
+        11: 'trace_d_processing_done',
+        12: 'pass_fail_detected',
+        13: 'trigger_ready',
+    }
+
     # --------------------- MISCELLANEOUS ---------------------
 
-    def wait(self, t=None):
+    def wait(self):
         ''' Wait for previous command to finish. '''
-        s = 'WAIT'
-        if t is not None:
-            s = f'{s} {t}'
-        self.write(s)
+        self.query('*OPC?')
     
     def get_last_error(self):
         ''' Query instrument for last error code. '''
@@ -573,11 +586,13 @@ class BK2555(Oscilloscope):
         if timeout is not None:
             ref_timeout = self.timeout  # ms
             self.timeout = timeout * S_TO_MS  # ms
-        # Query instrument for operation complete (which will be sent after trigger event is detected and acquisition is done)
+        
+        # Wait for acquisition to complete (or instrument timeout)
         try:
-            self.query('*OPC?')
+            self.write('WAIT')
         except VisaIOError as e:
             raise VisaError(f'error while waiting for acquisition completion: {e}')
+
         # Reset instrument timeout to reference value
         finally:
             if timeout is not None:
@@ -662,7 +677,31 @@ class BK2555(Oscilloscope):
             nsweeps = self.get_nsweeps_per_acquisition()
             value = f'{value},{nsweeps}'
         self.write(f'ACQW {value}')
-    
+
+    def get_INR_value(self):
+        ''' Get the internal state change register. '''
+        out = self.query('INR?')
+        mo = re.match('INR (.+)', out)
+        return int(mo[1])
+
+    def get_internal_state_changes(self):
+        ''' Parse INR query response '''
+        value = self.get_INR_value()
+        bits_set = [bit for bit in self.INR_FLAGS if value & (1 << bit)]
+        flags = [self.INR_FLAGS[bit] for bit in bits_set]
+        return flags
+
+    def is_new_signal_acquired(self):
+        ''' Check if a new signal has been acquired. '''
+        flags = self.get_internal_state_changes()
+        return 'new_signal_acquired' in flags
+
+    def is_trigger_ready(self):
+        ''' Check if the trigger is ready. '''
+        flags = self.get_internal_state_changes()
+        return 'trigger_ready' in flags
+  
+
     # --------------------- PARAMETERS ---------------------
 
     def get_parameter_value(self, ich, pkey):
