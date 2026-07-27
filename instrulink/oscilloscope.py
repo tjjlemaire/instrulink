@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-07-24 15:16:10
+# @Last Modified time: 2026-07-27 14:48:06
 # @Last Modified time: 2022-04-08 21:17:22
 
 import abc
@@ -274,8 +274,10 @@ class Oscilloscope(VisaInstrument):
             else:
                 self.set_vertical_scale(ich, target_vdiv)
                 self.wait()
-                new_vdiv = self.get_vertical_scale(ich)
-                self.log(f'adjusted CH{ich} v-range to target peak-to-peak signal amplitude ({si_format(2 * value, 2)}V) -> vdiv = {si_format(new_vdiv, 2)}V/div')
+                vdiv = self.get_vertical_scale(ich)
+                self.log(f'adjusted CH{ich} v-range to target peak-to-peak signal amplitude ({si_format(2 * value, 2)}V) -> vdiv = {si_format(vdiv, 2)}V/div')
+
+        return vdiv
 
     @abc.abstractmethod
     def set_vertical_offset(self, ich, value):

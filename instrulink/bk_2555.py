@@ -2,10 +2,11 @@
 # @Author: Theo Lemaire
 # @Date:   2022-04-07 17:51:29
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-07-24 14:30:17
+# @Last Modified time: 2026-07-27 13:35:46
 # @Last Modified time: 2022-04-08 21:17:22
 
 import re
+import time
 import struct
 from pyvisa.errors import VisaIOError
 
@@ -576,7 +577,40 @@ class BK2555(Oscilloscope):
         self.write('ARM')
         self.wait()
 
-    def wait_for_acquisition(self, timeout=None):
+    def wait_for_acquisition(self, timeout=None, poll_delay=0.1, log_delay=1.):
+        ''' 
+        Wait for a new acquisition to be available.
+
+        :param timeout: query timeout (in seconds).
+        :param poll_delay: delay between completion queries (s)
+        :param log_delay: delay between wait log message (s)
+        '''
+        # Figure out every how many queries to log a message (at least 1)
+        n = max(int(log_delay / poll_delay), 1)
+
+        # Call INR method to clear internal state change register
+        self.get_internal_state_changes()
+
+        # Query instrument for operation complete (which will be sent after trigger event is detected and acquisition is done)
+        try:
+            start_time = time.time()
+            counter = 0
+            while not self.is_new_signal_acquired():
+                if counter == n:
+                    self.log('waiting for acquisition...')
+                    counter = 0
+                counter += 1
+                if timeout is not None and time.time() - start_time > timeout:
+                    raise VisaError('Acquisition did not complete in time')
+                time.sleep(poll_delay)
+            time_elapsed = time.time() - start_time
+            self.log(f'waited for {si_format(time_elapsed, 2)}s')
+
+        # If an exception occurs during the wait, catch it and raise a VisaError
+        except Exception as e:
+            raise VisaError(f'Acquisition wait failed: {e}')
+
+    def wait_for_acquisition_old(self, timeout=None):
         '''
         Wait for acquisition to be completed.
         
