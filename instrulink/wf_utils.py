@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-08-15 09:29:37
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-07-14 13:08:47
+# @Last Modified time: 2026-07-27 11:48:21
 
 import numpy as np
 from scipy.signal.windows import tukey
@@ -80,10 +80,10 @@ def get_pulse_envelope(n, tpulse, toff, tramp=0, **kwargs):
     y = get_tukey_envelope(npulse, xramp=xramp, xpostpad=xpostpad, **kwargs)
 
     # Check that vector is of expected size
-    assert y.size == n, f'expected envelope vector of size {n}, got {y.size}'
+    assert y.size in (n - 1, n, n + 1), f'expected envelope vector of size {n}, got {y.size}'
 
     # Generate time vector
-    t = np.linspace(0, ttot, n)  # s
+    t = np.linspace(0, ttot, y.size)  # s
 
     # Return time and envelope vectors
     return t, y
