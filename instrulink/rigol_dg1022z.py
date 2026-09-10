@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2022-03-08 08:37:26
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2026-07-14 13:10:19
+# @Last Modified time: 2026-09-10 14:27:03
 
 import time
 import re
@@ -1301,7 +1301,7 @@ class RigolDG1022Z(WaveformGenerator):
         # Set channel trigger source
         self.set_trigger_source(ich, trig_source)
     
-    def set_TTL_train(self, ich, PRF, tburst, Vpp=TTL_PAMP, T=DEFAULT_TBURST, trig_source='EXT'):
+    def set_TTL_train(self, ich, PRF, tburst, Vpp=TTL_PAMP, PW=TTL_PWIDTH, T=DEFAULT_TBURST, trig_source='EXT'):
         '''
         Set a train of TTL-type trigger pulses on a specific channel
         
@@ -1320,6 +1320,9 @@ class RigolDG1022Z(WaveformGenerator):
         
         # Apply pulse with specific frequency, amplitude and offset
         self.apply_pulse(ich, PRF, Vpp, offset=Vpp / 2.)
+        if PW != TTL_PWIDTH:
+            s = f'{s}, {si_format(PW, 2)}s pulse width'
+        self.log(s)
 
         # Set nominal pulse width
         self.set_pulse_width(ich, TTL_PWIDTH)
