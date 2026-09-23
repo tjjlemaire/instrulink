@@ -15,6 +15,9 @@ from .constants import S_TO_MS
 from .logger import logger
 from .si_utils import si_format, SI_powers
 
+# Instantiate resource manager upon module loading
+rm = pyvisa.ResourceManager()
+
 
 class VisaError(Exception):
     ''' Custom exception class for VISA instrument '''
@@ -23,7 +26,6 @@ class VisaError(Exception):
 
 def list_visa_resources():
     ''' List all available VISA resources. '''
-    rm = pyvisa.ResourceManager()
     resources = rm.list_resources()
     res_str = '\n'.join([f'  - {r}' for r in resources])
     print(f'VISA resources:\n{res_str}')
@@ -57,7 +59,6 @@ class VisaInstrument(metaclass=abc.ABCMeta):
     def connect(self):
         ''' Connect to instrument. '''
         # Detect instrument and raise error if not found
-        rm = pyvisa.ResourceManager()
         resources = rm.list_resources()
         if len(resources) == 0:
             raise VisaError('no instrument detected')
