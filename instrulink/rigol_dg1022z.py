@@ -1316,7 +1316,6 @@ class RigolDG1022Z(WaveformGenerator):
         s = self.log_train_trigger(trig_source, 'TTL', ich, tburst, PRF, T)
         if Vpp != TTL_PAMP:
             s = f'{s}, {si_format(Vpp, 2)}Vpp'
-        self.log(s)
         
         # Apply pulse with specific frequency, amplitude and offset
         self.apply_pulse(ich, PRF, Vpp, offset=Vpp / 2.)
